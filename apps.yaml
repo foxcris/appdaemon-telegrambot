@@ -1,0 +1,4 @@
+TelegramBot:
+  module:                   TelegramBot
+  class:                    TelegramBot
+  debug:                    True
