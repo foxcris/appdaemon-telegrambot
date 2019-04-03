@@ -36,3 +36,7 @@ The file Helper.py is also used by one of my [other](https://github.com/foxcris/
 ### home-assistant configuration
 
 # Screenshots
+![Available commands](https://raw.githubusercontent.com/foxcris/appdaemon-telegrambot/master/images/Screenshot_20190310_123130_org.telegram.messenger.jpg "Available commands")
+![State covers](https://raw.githubusercontent.com/foxcris/appdaemon-telegrambot/master/images/Screenshot_20190403_210457_org.telegram.messenger.jpg "State covers")
+![State vacuum](https://raw.githubusercontent.com/foxcris/appdaemon-telegrambot/master/images/Screenshot_20190403_210508_org.telegram.messenger.jpg "State vacuum")
+![Open cover](https://raw.githubusercontent.com/foxcris/appdaemon-telegrambot/master/images/Screenshot_20190403_210559_org.telegram.messenger.jpg "Open cover")
