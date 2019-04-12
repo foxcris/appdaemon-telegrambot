@@ -208,8 +208,9 @@ class TelegramBot(BaseClass):
         msg = "Which cover do you want to open?\n"
         statedict = self.get_state()
         keyboard = list()
+        keyboardrow = list()
         count = 1
-        keyboard.append(
+        keyboardrow.append(
             (count, f"/open_cover?entity_id=all"))
         msg += f"{count}: Open all covers)\n\n"
         count += 1
@@ -219,23 +220,32 @@ class TelegramBot(BaseClass):
                 entity_id = statedict.get(entity).get("entity_id")
                 friendly_name = statedict.get(entity).get(
                     "attributes").get("friendly_name")
-                keyboard.append(
+                keyboardrow.append(
                     (count, f"/open_cover?entity_id={entity_id}"))
                 msg += f"{count}: {entity_id} ({friendly_name})\n\n"
                 count += 1
+                # start a new row after 8 buttons
+                # only 8 buttins can be shown in one line (atleast on my phone)
+                if count % 8 == 0:
+                    keyboard.append(keyboardrow)
+                    keyboardrow = list()
+
+        if len(keyboardrow) > 0:
+            keyboard.append(keyboardrow)
 
         self.call_service(
             'telegram_bot/send_message',
             target=target_id,
             message=self._escape_markdown(msg),
-            inline_keyboard=[keyboard])
+            inline_keyboard=keyboard)
 
     def _cmd_close_cover(self, target_id):
         msg = "Which cover do you want to close?\n"
         statedict = self.get_state()
         keyboard = list()
+        keyboardrow = list()
         count = 1
-        keyboard.append(
+        keyboardrow.append(
             (count, f"/close_cover?entity_id=all"))
         msg += f"{count}: Close all covers)\n\n"
         count += 1
@@ -245,16 +255,24 @@ class TelegramBot(BaseClass):
                 entity_id = statedict.get(entity).get("entity_id")
                 friendly_name = statedict.get(entity).get(
                     "attributes").get("friendly_name")
-                keyboard.append(
+                keyboardrow.append(
                     (count, f"/close_cover?entity_id={entity_id}"))
                 msg += f"{count}: {entity_id} ({friendly_name})\n\n"
                 count += 1
+                # start a new row after 8 buttons
+                # only 8 buttins can be shown in one line (atleast on my phone)
+                if count % 8 == 0:
+                    keyboard.append(keyboardrow)
+                    keyboardrow = list()
+
+        if len(keyboardrow) > 0:
+            keyboard.append(keyboardrow)
 
         self.call_service(
             'telegram_bot/send_message',
             target=target_id,
             message=self._escape_markdown(msg),
-            inline_keyboard=[keyboard])
+            inline_keyboard=keyboard)
 
     def _clb_close_cover(self, target_id, paramdict):
         entity_id = paramdict.get("entity_id")
@@ -293,8 +311,9 @@ class TelegramBot(BaseClass):
         msg = "Which light do you want to turn off?\n"
         statedict = self.get_state()
         keyboard = list()
+        keyboardrow = list()
         count = 1
-        keyboard.append(
+        keyboardrow.append(
             (count, f"/turnoff_light?entity_id=all"))
         msg += f"{count}: Turn off all lights)\n\n"
         count += 1
@@ -304,16 +323,24 @@ class TelegramBot(BaseClass):
                 entity_id = statedict.get(entity).get("entity_id")
                 friendly_name = statedict.get(entity).get(
                     "attributes").get("friendly_name")
-                keyboard.append(
+                keyboardrow.append(
                     (count, f"/turnoff_light?entity_id={entity_id}"))
                 msg += f"{count}: {entity_id} ({friendly_name})\n\n"
                 count += 1
+                # start a new row after 8 buttons
+                # only 8 buttins can be shown in one line (atleast on my phone)
+                if count % 8 == 0:
+                    keyboard.append(keyboardrow)
+                    keyboardrow = list()
+
+        if len(keyboardrow) > 0:
+            keyboard.append(keyboardrow)
 
         self.call_service(
             'telegram_bot/send_message',
             target=target_id,
             message=self._escape_markdown(msg),
-            inline_keyboard=[keyboard])
+            inline_keyboard=keyboard)
 
     def _clb_turn_off_light(self, target_id, paramdict):
         entity_id = paramdict.get("entity_id")
@@ -352,8 +379,9 @@ class TelegramBot(BaseClass):
         msg = "Which light do you want to turn on?\n"
         statedict = self.get_state()
         keyboard = list()
+        keyboardrow = list()
         count = 1
-        keyboard.append(
+        keyboardrow.append(
             (count, f"/turnon_light?entity_id=all"))
         msg += f"{count}: Turn on all lights)\n\n"
         count += 1
@@ -363,16 +391,24 @@ class TelegramBot(BaseClass):
                 entity_id = statedict.get(entity).get("entity_id")
                 friendly_name = statedict.get(entity).get(
                     "attributes").get("friendly_name")
-                keyboard.append(
+                keyboardrow.append(
                     (count, f"/turnon_light?entity_id={entity_id}"))
                 msg += f"{count}: {entity_id} ({friendly_name})\n\n"
                 count += 1
+                # start a new row after 8 buttons
+                # only 8 buttins can be shown in one line (atleast on my phone)
+                if count % 8 == 0:
+                    keyboard.append(keyboardrow)
+                    keyboardrow = list()
+
+        if len(keyboardrow) > 0:
+            keyboard.append(keyboardrow)
 
         self.call_service(
             'telegram_bot/send_message',
             target=target_id,
             message=self._escape_markdown(msg),
-            inline_keyboard=[keyboard])
+            inline_keyboard=keyboard)
 
     def _clb_turn_on_light(self, target_id, paramdict):
         entity_id = paramdict.get("entity_id")
@@ -426,6 +462,7 @@ class TelegramBot(BaseClass):
         msg = "Which vacuum do you want to start?\n"
         statedict = self.get_state()
         keyboard = list()
+        keyboardrow = list()
         count = 1
         for entity in statedict:
             if re.match('^vacuum.*', entity, re.IGNORECASE):
@@ -433,16 +470,24 @@ class TelegramBot(BaseClass):
                 entity_id = statedict.get(entity).get("entity_id")
                 friendly_name = statedict.get(entity).get(
                     "attributes").get("friendly_name")
-                keyboard.append(
+                keyboardrow.append(
                     (count, f"/start_vacuum?entity_id={entity_id}"))
                 msg += f"{count}: {entity_id} ({friendly_name})\n\n"
                 count += 1
+                # start a new row after 8 buttons
+                # only 8 buttins can be shown in one line (atleast on my phone)
+                if count % 8 == 0:
+                    keyboard.append(keyboardrow)
+                    keyboardrow = list()
+
+        if len(keyboardrow) > 0:
+            keyboard.append(keyboardrow)
 
         self.call_service(
             'telegram_bot/send_message',
             target=target_id,
             message=self._escape_markdown(msg),
-            inline_keyboard=[keyboard])
+            inline_keyboard=keyboard)
 
     def _clb_start_vacuum(self, target_id, paramdict):
         entity_id =paramdict.get("entity_id")
