@@ -174,7 +174,7 @@ class TelegramBot(BaseClass):
     def _clb_open_cover(self, target_id, paramdict):
         entity_id =paramdict.get("entity_id")
         if entity_id == "all":
-            self.call_service("cover/open_cover")
+            self.call_service("cover/open_cover", entity_id="all")
             msg = "Open all covers!"
             self.call_service(
                 'telegram_bot/send_message',
@@ -255,12 +255,13 @@ class TelegramBot(BaseClass):
                 entity_id = statedict.get(entity).get("entity_id")
                 friendly_name = statedict.get(entity).get(
                     "attributes").get("friendly_name")
+                self._log_debug("Len Callback: %s" % len(f"{entity_id}".encode('utf-8')))
                 keyboardrow.append(
                     (count, f"/close_cover?entity_id={entity_id}"))
                 msg += f"{count}: {entity_id} ({friendly_name})\n\n"
                 count += 1
                 # start a new row after 8 buttons
-                # only 8 buttins can be shown in one line (atleast on my phone)
+                # only 8 buttons can be shown in one line (atleast on my phone)
                 if count % 8 == 0:
                     keyboard.append(keyboardrow)
                     keyboardrow = list()
@@ -277,7 +278,7 @@ class TelegramBot(BaseClass):
     def _clb_close_cover(self, target_id, paramdict):
         entity_id = paramdict.get("entity_id")
         if entity_id == "all":
-            self.call_service("cover/close_cover")
+            self.call_service("cover/close_cover", entity_id="all")
             msg = "Close all covers!"
             self.call_service(
                 'telegram_bot/send_message',
@@ -345,7 +346,7 @@ class TelegramBot(BaseClass):
     def _clb_turn_off_light(self, target_id, paramdict):
         entity_id = paramdict.get("entity_id")
         if entity_id == "all":
-            self.call_service("light/turn_off")
+            self.call_service("light/turn_off", entity_id="all")
             msg = "Turn off all lights!"
             self.call_service(
                 'telegram_bot/send_message',
@@ -413,7 +414,7 @@ class TelegramBot(BaseClass):
     def _clb_turn_on_light(self, target_id, paramdict):
         entity_id = paramdict.get("entity_id")
         if entity_id == "all":
-            self.call_service("light/turn_on")
+            self.call_service("light/turn_on", entity_id="all")
             msg = "Turn on all lights!"
             self.call_service(
                 'telegram_bot/send_message',
