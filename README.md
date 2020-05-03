@@ -17,7 +17,7 @@ Currently the bot provides a simple request/response command interface. The foll
 * /start_vacuum: Start vacuum
 * /stop_vacuum: Stop running vacuum
 * /restart_hass: Restart hass
-* /state_system: State of home-assistant"
+* /state_system: State of home-assistant
 * /get_version: Get version of telegrambot
 
 ## Configuration
