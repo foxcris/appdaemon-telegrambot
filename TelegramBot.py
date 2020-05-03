@@ -17,7 +17,8 @@ class TelegramBot(BaseClass):
                              "/start_vacuum": {"desc": "Start vacuum", "method": self._cmd_start_vacuum},
                              "/stop_vacuum": {"desc": "Stop running vacuum", "method": self._cmd_stop_vacuum},
                              "/restart_hass": {"desc": "Restart hass", "method": self._cmd_restart_hass},
-                             "/state_system": {"desc": "State of home-assistant", "method": self._cmd_state_system}}
+                             "/state_system": {"desc": "State of home-assistant", "method": self._cmd_state_system},
+                             "/get_version": {"desc": "Get version of telegrambot", "method": self._cmd_get_version}}
         self._callbackdict = {"/restart_hass": {"desc": "Restart hass", "method": self._clb_restart_hass},
                               "/start_vacuum": {"desc": "Start vacuum", "method": self._clb_start_vacuum},
                               "/stop_vacuum": {"desc": "Start vacuum", "method": self._clb_stop_vacuum},
@@ -35,12 +36,32 @@ class TelegramBot(BaseClass):
         self.listen_event(self._appdaemon_restarted, 'appd_started')
         self._entityid_hash_dict = dict()
         self._hash_entityid_dict = dict()
-        self._extend_state_system = None
-        if self.args["extend_state_system"] is not None and self.args["extend_state_system"]!="":
-            self._extend_state_system=self.args["extend_state_system"].split(',')
-        self._filter_state_system = None
-        if self.args["filter_state_system"] is not None and self.args["filter_state_system"]!="":
-            self._filter_state_system=self.args["filter_state_system"]
+        self._version=1.0
+        
+        #handle extend
+        self._extend_system = None
+        if self.args["extend_system"] is not None and self.args["extend_system"]!="":
+            self._extend_system=self.args["extend_system"].split(',')
+        
+        #handle filter
+        self._filter_exclude_system = None
+        if self.args["filter_exclude_system"] is not None and self.args["filter_exclude_system"]!="":
+            self._filter_exclude_system=self.args["filter_exclude_system"]
+        self._filter_exclude_cover = None
+        if self.args["filter_exclude_cover"] is not None and self.args["filter_exclude_cover"]!="":
+            self._filter_exclude_cover=self.args["filter_exclude_cover"]
+        self._filter_exclude_vacuum = None
+        if self.args["filter_exclude_vacuum"] is not None and self.args["filter_exclude_vacuum"]!="":
+            self._filter_exclude_vacuum=self.args["filter_exclude_vacuum"]
+        self._filter_exclude_light = None
+        if self.args["filter_exclude_light"] is not None and self.args["filter_exclude_light"]!="":
+            self._filter_exclude_light=self.args["filter_exclude_light"]
+        self._filter_exclude_climate = None
+        if self.args["filter_exclude_climate"] is not None and self.args["filter_exclude_climate"]!="":
+            self._filter_exclude_climate=self.args["filter_exclude_climate"]
+        self._filter_exclude_person = None
+        if self.args["filter_exclude_person"] is not None and self.args["filter_exclude_person"]!="":
+            self._filter_exclude_person=self.args["filter_exclude_person"]
 
     def _receive_telegram_command(self, event_id, payload_event, *args):
         user_id = payload_event['user_id']
@@ -81,15 +102,21 @@ class TelegramBot(BaseClass):
         msg = ""
         for entity in statedict:
             if re.match('^cover.*', entity, re.IGNORECASE):
-                self._log_debug(statedict.get(entity))
-                entity_id = statedict.get(entity).get("entity_id")
-                state = statedict.get(entity).get("state")
-                friendly_name = statedict.get(entity).get(
-                    "attributes").get("friendly_name")
-                current_position = statedict.get(entity).get(
-                    "attributes").get("current_position")
+                filtered=False
+                if self._filter_exclude_cover is not None and re.search(self._filter_exclude_cover, entity, re.IGNORECASE):
+                    #check if entity is filtered 
+                    filtered=True
+                if not filtered:
+                    self._log_debug(statedict.get(entity))
+                    #entity_id = statedict.get(entity).get("entity_id")
+                    entity_id = entity
+                    state = statedict.get(entity).get("state")
+                    friendly_name = statedict.get(entity).get(
+                        "attributes").get("friendly_name")
+                    current_position = statedict.get(entity).get(
+                        "attributes").get("current_position")
 
-                msg += f"{entity_id} {friendly_name}\nstate: {state}\ncurrent_position: {current_position}\n\n"
+                    msg += f"{entity_id} {friendly_name}\nstate: {state}\ncurrent_position: {current_position}\n\n"
         self._log_debug(msg)
         self.call_service(
             'telegram_bot/send_message',
@@ -100,44 +127,56 @@ class TelegramBot(BaseClass):
         statedict = self.get_state()
         for entity in statedict:
             if re.match('^person.*', entity, re.IGNORECASE):
-                self._log_debug(statedict.get(entity))
-                entity_id = statedict.get(entity).get("entity_id")
-                state = statedict.get(entity).get("state")
-                friendly_name = statedict.get(entity).get(
-                    "attributes").get("friendly_name")
-                latitude = statedict.get(entity).get(
-                    "attributes").get("latitude")
-                longitude = statedict.get(entity).get(
-                    "attributes").get("longitude")
-                gps_accuracy = statedict.get(entity).get(
-                    "attributes").get("gps_accuracy")
+                filtered=False
+                if self._filter_exclude_person is not None and re.search(self._filter_exclude_person, entity, re.IGNORECASE):
+                    #check if entity is filtered 
+                    filtered=True
+                if not filtered:
+                    self._log_debug(statedict.get(entity))
+                    #entity_id = statedict.get(entity).get("entity_id")
+                    entity_id = entity
+                    state = statedict.get(entity).get("state")
+                    friendly_name = statedict.get(entity).get(
+                        "attributes").get("friendly_name")
+                    latitude = statedict.get(entity).get(
+                        "attributes").get("latitude")
+                    longitude = statedict.get(entity).get(
+                        "attributes").get("longitude")
+                    gps_accuracy = statedict.get(entity).get(
+                        "attributes").get("gps_accuracy")
 
-                msg = f"{entity_id} {friendly_name}\nstate: {state}\nlatitude: {latitude}\nlongitude: {longitude}\ngps_accuracy: {gps_accuracy}\n\n"
-                self._log_debug(msg)
-                self.call_service(
-                    'telegram_bot/send_message',
-                    target=target_id,
-                    message=self._escape_markdown(msg))
-                self.call_service(
-                    'telegram_bot/send_location',
-                    target=target_id,
-                    latitude=latitude,
-                    longitude=longitude)
+                    msg = f"{entity_id} {friendly_name}\nstate: {state}\nlatitude: {latitude}\nlongitude: {longitude}\ngps_accuracy: {gps_accuracy}\n\n"
+        self._log_debug(msg)
+        self.call_service(
+            'telegram_bot/send_message',
+            target=target_id,
+            message=self._escape_markdown(msg))
+        self.call_service(
+            'telegram_bot/send_location',
+            target=target_id,
+            latitude=latitude,
+            longitude=longitude)
 
     def _cmd_state_vacuum(self, target_id):
         statedict = self.get_state()
         msg = ""
         for entity in statedict:
             if re.match('^vacuum.*', entity, re.IGNORECASE):
-                self._log_debug(statedict.get(entity))
-                entity_id = statedict.get(entity).get("entity_id")
-                state = statedict.get(entity).get("state")
-                friendly_name = statedict.get(entity).get(
-                    "attributes").get("friendly_name")
-                battery_level = statedict.get(entity).get(
-                    "attributes").get("battery_level")
+                filtered=False
+                if self._filter_exclude_vacuum is not None and re.search(self._filter_exclude_vacuum, entity, re.IGNORECASE):
+                    #check if entity is filtered 
+                    filtered=True
+                if not filtered:
+                    self._log_debug(statedict.get(entity))
+                    #entity_id = statedict.get(entity).get("entity_id")
+                    entity_id = entity
+                    state = statedict.get(entity).get("state")
+                    friendly_name = statedict.get(entity).get(
+                        "attributes").get("friendly_name")
+                    battery_level = statedict.get(entity).get(
+                        "attributes").get("battery_level")
 
-                msg += f"{entity_id} {friendly_name}\nstate: {state}\nbattery_level: {battery_level}\n\n"
+                    msg += f"{entity_id} {friendly_name}\nstate: {state}\nbattery_level: {battery_level}\n\n"
         self._log_debug(msg)
         self.call_service(
             'telegram_bot/send_message',
@@ -149,13 +188,19 @@ class TelegramBot(BaseClass):
         msg = ""
         for entity in statedict:
             if re.match('^light.*', entity, re.IGNORECASE):
-                self._log_debug(statedict.get(entity))
-                entity_id = statedict.get(entity).get("entity_id")
-                state = statedict.get(entity).get("state")
-                friendly_name = statedict.get(entity).get(
-                    "attributes").get("friendly_name")
+                filtered=False
+                if self._filter_exclude_light is not None and re.search(self._filter_exclude_light, entity, re.IGNORECASE):
+                    #check if entity is filtered 
+                    filtered=True
+                if not filtered:
+                    self._log_debug(statedict.get(entity))
+                    #entity_id = statedict.get(entity).get("entity_id")
+                    entity_id = entity
+                    state = statedict.get(entity).get("state")
+                    friendly_name = statedict.get(entity).get(
+                        "attributes").get("friendly_name")
 
-                msg += f"{entity_id} {friendly_name}\nstate: {state}\n\n"
+                    msg += f"{entity_id} {friendly_name}\nstate: {state}\n\n"
         self._log_debug(msg)
         self.call_service(
             'telegram_bot/send_message',
@@ -167,17 +212,23 @@ class TelegramBot(BaseClass):
         msg = ""
         for entity in statedict:
             if re.match('^climate.*', entity, re.IGNORECASE):
-                self._log_debug(statedict.get(entity))
-                entity_id = statedict.get(entity).get("entity_id")
-                state = statedict.get(entity).get("state")
-                current_temperature = statedict.get(entity).get(
-                    "attributes").get("current_temperature")
-                temperature = statedict.get(entity).get(
-                    "attributes").get("temperature")
-                friendly_name = statedict.get(entity).get(
-                    "attributes").get("friendly_name")
+                filtered=False
+                if self._filter_exclude_climate is not None and re.search(self._filter_exclude_climate, entity, re.IGNORECASE):
+                    #check if entity is filtered 
+                    filtered=True
+                if not filtered:
+                    self._log_debug(statedict.get(entity))
+                    #entity_id = statedict.get(entity).get("entity_id")
+                    entity_id = entity
+                    state = statedict.get(entity).get("state")
+                    current_temperature = statedict.get(entity).get(
+                        "attributes").get("current_temperature")
+                    temperature = statedict.get(entity).get(
+                        "attributes").get("temperature")
+                    friendly_name = statedict.get(entity).get(
+                        "attributes").get("friendly_name")
 
-                msg += f"{entity_id} {friendly_name}\nstate: {state}\ncurrent temperature: {current_temperature}\ntemperature: {temperature}.\n\n"
+                    msg += f"{entity_id} {friendly_name}\nstate: {state}\ncurrent temperature: {current_temperature}\ntemperature: {temperature}.\n\n"
         self.call_service(
             'telegram_bot/send_message',
             target=target_id,
@@ -225,28 +276,35 @@ class TelegramBot(BaseClass):
         count = 1
         keyboardrow.append(
             (count, f"/open_cover?entity_id=all"))
-        msg += f"{count}: Open all covers)\n\n"
+        msg += f"{count}: Open all covers\n\n"
         count += 1
         for entity in statedict:
             if re.match('^cover.*', entity, re.IGNORECASE):
-                self._log_debug(statedict.get(entity))
-                entity_id = statedict.get(entity).get("entity_id")
-                hashvalue = self._get_hash_from_entityid(entity_id)
-                friendly_name = statedict.get(entity).get(
-                    "attributes").get("friendly_name")
-                keyboardrow.append(
-                    (count, f"/open_cover?entity_id={hashvalue}"))
-                msg += f"{count}: {entity_id} ({friendly_name})\n\n"
-                count += 1
-                # start a new row after 8 buttons
-                # only 8 buttins can be shown in one line (atleast on my phone)
-                if count % 8 == 0:
-                    keyboard.append(keyboardrow)
-                    keyboardrow = list()
+                filtered=False
+                if self._filter_exclude_cover is not None and re.search(self._filter_exclude_cover, entity, re.IGNORECASE):
+                    #check if entity is filtered 
+                    filtered=True
+                if not filtered:
+                    self._log_debug(statedict.get(entity))
+                    #entity_id = statedict.get(entity).get("entity_id")
+                    entity_id = entity
+                    hashvalue = self._get_hash_from_entityid(entity_id)
+                    friendly_name = statedict.get(entity).get(
+                        "attributes").get("friendly_name")
+                    keyboardrow.append(
+                        (count, f"/open_cover?entity_id={hashvalue}"))
+                    msg += f"{count}: {entity_id} ({friendly_name})\n\n"
+                    count += 1
+                    # start a new row after 8 buttons
+                    # only 8 buttins can be shown in one line (atleast on my phone)
+                    if count % 8 == 0:
+                        keyboard.append(keyboardrow)
+                        keyboardrow = list()
 
         if len(keyboardrow) > 0:
             keyboard.append(keyboardrow)
-
+        self._log_debug(msg)
+        self._log_debug(keyboard)
         self.call_service(
             'telegram_bot/send_message',
             target=target_id,
@@ -261,25 +319,31 @@ class TelegramBot(BaseClass):
         count = 1
         keyboardrow.append(
             (count, f"/close_cover?entity_id=all"))
-        msg += f"{count}: Close all covers)\n\n"
+        msg += f"{count}: Close all covers\n\n"
         count += 1
         for entity in statedict:
             if re.match('^cover.*', entity, re.IGNORECASE):
-                self._log_debug(statedict.get(entity))
-                entity_id = statedict.get(entity).get("entity_id")
-                hashvalue = self._get_hash_from_entityid(entity_id)
-                friendly_name = statedict.get(entity).get(
-                    "attributes").get("friendly_name")
-                self._log_debug("Len Callback: %s" % len(f"{entity_id}".encode('utf-8')))
-                keyboardrow.append(
-                    (count, f"/close_cover?entity_id={hashvalue}"))
-                msg += f"{count}: {entity_id} ({friendly_name})\n\n"
-                count += 1
-                # start a new row after 8 buttons
-                # only 8 buttons can be shown in one line (atleast on my phone)
-                if count % 8 == 0:
-                    keyboard.append(keyboardrow)
-                    keyboardrow = list()
+                filtered=False
+                if self._filter_exclude_cover is not None and re.search(self._filter_exclude_cover, entity, re.IGNORECASE):
+                    #check if entity is filtered 
+                    filtered=True
+                if not filtered:
+                    self._log_debug(statedict.get(entity))
+                    #entity_id = statedict.get(entity).get("entity_id")
+                    entity_id = entity
+                    hashvalue = self._get_hash_from_entityid(entity_id)
+                    friendly_name = statedict.get(entity).get(
+                        "attributes").get("friendly_name")
+                    self._log_debug("Len Callback: %s" % len(f"{entity_id}".encode('utf-8')))
+                    keyboardrow.append(
+                        (count, f"/close_cover?entity_id={hashvalue}"))
+                    msg += f"{count}: {entity_id} ({friendly_name})\n\n"
+                    count += 1
+                    # start a new row after 8 buttons
+                    # only 8 buttons can be shown in one line (atleast on my phone)
+                    if count % 8 == 0:
+                        keyboard.append(keyboardrow)
+                        keyboardrow = list()
 
         if len(keyboardrow) > 0:
             keyboard.append(keyboardrow)
@@ -332,24 +396,30 @@ class TelegramBot(BaseClass):
         count = 1
         keyboardrow.append(
             (count, f"/turnoff_light?entity_id=all"))
-        msg += f"{count}: Turn off all lights)\n\n"
+        msg += f"{count}: Turn off all lights\n\n"
         count += 1
         for entity in statedict:
             if re.match('^light.*', entity, re.IGNORECASE):
-                self._log_debug(statedict.get(entity))
-                entity_id = statedict.get(entity).get("entity_id")
-                hashvalue = self._get_hash_from_entityid(entity_id)
-                friendly_name = statedict.get(entity).get(
-                    "attributes").get("friendly_name")
-                keyboardrow.append(
-                    (count, f"/turnoff_light?entity_id={hashvalue}"))
-                msg += f"{count}: {entity_id} ({friendly_name})\n\n"
-                count += 1
-                # start a new row after 8 buttons
-                # only 8 buttins can be shown in one line (atleast on my phone)
-                if count % 8 == 0:
-                    keyboard.append(keyboardrow)
-                    keyboardrow = list()
+                filtered=False
+                if self._filter_exclude_light is not None and re.search(self._filter_exclude_light, entity, re.IGNORECASE):
+                    #check if entity is filtered 
+                    filtered=True
+                if not filtered:
+                    self._log_debug(statedict.get(entity))
+                    #entity_id = statedict.get(entity).get("entity_id")
+                    entity_id = entity
+                    hashvalue = self._get_hash_from_entityid(entity_id)
+                    friendly_name = statedict.get(entity).get(
+                        "attributes").get("friendly_name")
+                    keyboardrow.append(
+                        (count, f"/turnoff_light?entity_id={hashvalue}"))
+                    msg += f"{count}: {entity_id} ({friendly_name})\n\n"
+                    count += 1
+                    # start a new row after 8 buttons
+                    # only 8 buttins can be shown in one line (atleast on my phone)
+                    if count % 8 == 0:
+                        keyboard.append(keyboardrow)
+                        keyboardrow = list()
 
         if len(keyboardrow) > 0:
             keyboard.append(keyboardrow)
@@ -402,24 +472,30 @@ class TelegramBot(BaseClass):
         count = 1
         keyboardrow.append(
             (count, f"/turnon_light?entity_id=all"))
-        msg += f"{count}: Turn on all lights)\n\n"
+        msg += f"{count}: Turn on all lights\n\n"
         count += 1
         for entity in statedict:
             if re.match('^light.*', entity, re.IGNORECASE):
-                self._log_debug(statedict.get(entity))
-                entity_id = statedict.get(entity).get("entity_id")
-                hashvalue = self._get_hash_from_entityid(entity_id)
-                friendly_name = statedict.get(entity).get(
-                    "attributes").get("friendly_name")
-                keyboardrow.append(
-                    (count, f"/turnon_light?entity_id={hashvalue}"))
-                msg += f"{count}: {entity_id} ({friendly_name})\n\n"
-                count += 1
-                # start a new row after 8 buttons
-                # only 8 buttins can be shown in one line (atleast on my phone)
-                if count % 8 == 0:
-                    keyboard.append(keyboardrow)
-                    keyboardrow = list()
+                filtered=False
+                if self._filter_exclude_light is not None and re.search(self._filter_exclude_light, entity, re.IGNORECASE):
+                    #check if entity is filtered 
+                    filtered=True
+                if not filtered:
+                    self._log_debug(statedict.get(entity))
+                    #entity_id = statedict.get(entity).get("entity_id")
+                    entity_id = entity
+                    hashvalue = self._get_hash_from_entityid(entity_id)
+                    friendly_name = statedict.get(entity).get(
+                        "attributes").get("friendly_name")
+                    keyboardrow.append(
+                        (count, f"/turnon_light?entity_id={hashvalue}"))
+                    msg += f"{count}: {entity_id} ({friendly_name})\n\n"
+                    count += 1
+                    # start a new row after 8 buttons
+                    # only 8 buttins can be shown in one line (atleast on my phone)
+                    if count % 8 == 0:
+                        keyboard.append(keyboardrow)
+                        keyboardrow = list()
 
         if len(keyboardrow) > 0:
             keyboard.append(keyboardrow)
@@ -470,7 +546,7 @@ class TelegramBot(BaseClass):
                 show_alert=True)
 
     def _cmd_restart_hass(self, target_id):
-        msg = "Restart hass?"
+        msg = "Restart home-assistant?"
         keyboard = [[("Yes", "/restart_hass?value=yes"), ("No",
                                                           "/restart_hass?value=no")]]
         self.call_service(
@@ -487,27 +563,34 @@ class TelegramBot(BaseClass):
         count = 1
         for entity in statedict:
             if re.match('^vacuum.*', entity, re.IGNORECASE):
-                self._log_debug(statedict.get(entity))
-                entity_id = statedict.get(entity).get("entity_id")
-                hashvalue = self._get_hash_from_entityid(entity_id)
-                state = statedict.get(entity).get("state")
-                friendly_name = statedict.get(entity).get(
-                    "attributes").get("friendly_name")
-                battery_level = statedict.get(entity).get(
-                    "attributes").get("battery_level")
-                keyboardrow.append(
-                    (count, f"/start_vacuum?entity_id={hashvalue}"))
-                msg += f"{count}: {entity_id} ({friendly_name})\nstate: {state}\nbattery_level: {battery_level}\n\n"
-                count += 1
-                # start a new row after 8 buttons
-                # only 8 buttins can be shown in one line (atleast on my phone)
-                if count % 8 == 0:
-                    keyboard.append(keyboardrow)
-                    keyboardrow = list()
+                filtered=False
+                if self._filter_exclude_vacuum is not None and re.search(self._filter_exclude_vacuum, entity, re.IGNORECASE):
+                    #check if entity is filtered 
+                    filtered=True
+                if not filtered:
+                    self._log_debug(statedict.get(entity))
+                    #entity_id = statedict.get(entity).get("entity_id")
+                    entity_id = entity
+                    hashvalue = self._get_hash_from_entityid(entity_id)
+                    state = statedict.get(entity).get("state")
+                    friendly_name = statedict.get(entity).get(
+                        "attributes").get("friendly_name")
+                    battery_level = statedict.get(entity).get(
+                        "attributes").get("battery_level")
+                    keyboardrow.append(
+                        (count, f"/start_vacuum?entity_id={hashvalue}"))
+                    msg += f"{count}: {entity_id} ({friendly_name})\nstate: {state}\nbattery_level: {battery_level}\n\n"
+                    count += 1
+                    # start a new row after 8 buttons
+                    # only 8 buttins can be shown in one line (atleast on my phone)
+                    if count % 8 == 0:
+                        keyboard.append(keyboardrow)
+                        keyboardrow = list()
 
         if len(keyboardrow) > 0:
             keyboard.append(keyboardrow)
-
+        self._log_debug(msg)
+        self._log_debug(keyboard)
         self.call_service(
             'telegram_bot/send_message',
             target=target_id,
@@ -550,29 +633,35 @@ class TelegramBot(BaseClass):
         count = 1
         for entity in statedict:
             if re.match('^vacuum.*', entity, re.IGNORECASE):
-                self._log_debug(statedict.get(entity))
-                entity_id = statedict.get(entity).get("entity_id")
-                hashvalue = self._get_hash_from_entityid(entity_id)
-                state = statedict.get(entity).get("state")
-                friendly_name = statedict.get(entity).get(
-                    "attributes").get("friendly_name")
-                battery_level = statedict.get(entity).get(
-                    "attributes").get("battery_level")
+                filtered=False
+                if self._filter_exclude_vacuum is not None and re.search(self._filter_exclude_vacuum, entity, re.IGNORECASE):
+                    #check if entity is filtered 
+                    filtered=True
+                if not filtered:
+                    self._log_debug(statedict.get(entity))
+                    #entity_id = statedict.get(entity).get("entity_id")
+                    entity_id = entity
+                    hashvalue = self._get_hash_from_entityid(entity_id)
+                    state = statedict.get(entity).get("state")
+                    friendly_name = statedict.get(entity).get(
+                        "attributes").get("friendly_name")
+                    battery_level = statedict.get(entity).get(
+                        "attributes").get("battery_level")
 
-                msg += f"{entity_id} {friendly_name}\nstate: {state}\nbattery_level: {battery_level}\n\n"
-                keyboardrow.append(
-                    (count, f"/stop_vacuum?entity_id={hashvalue}"))
-                msg += f"{count}: {entity_id} ({friendly_name})\nstate: {state}\nbattery_level: {battery_level}\n\n"
-                count += 1
-                # start a new row after 8 buttons
-                # only 8 buttins can be shown in one line (atleast on my phone)
-                if count % 8 == 0:
-                    keyboard.append(keyboardrow)
-                    keyboardrow = list()
+                    keyboardrow.append(
+                        (count, f"/stop_vacuum?entity_id={hashvalue}"))
+                    msg += f"{count}: {entity_id} ({friendly_name})\nstate: {state}\nbattery_level: {battery_level}\n\n"
+                    count += 1
+                    # start a new row after 8 buttons
+                    # only 8 buttins can be shown in one line (atleast on my phone)
+                    if count % 8 == 0:
+                        keyboard.append(keyboardrow)
+                        keyboardrow = list()
 
         if len(keyboardrow) > 0:
             keyboard.append(keyboardrow)
-
+        self._log_debug(msg)
+        self._log_debug(keyboard)
         self.call_service(
             'telegram_bot/send_message',
             target=target_id,
@@ -589,6 +678,10 @@ class TelegramBot(BaseClass):
                 'telegram_bot/send_message',
                 target=target_id,
                 message=self._escape_markdown(msg))
+            self.call_service(
+                'telegram_bot/answer_callback_query',
+                message=self._escape_markdown(msg),
+                callback_query_id=target_id)
             self.call_service("vacuum/return_to_base",
                               entity_id=entity_id)
         else:
@@ -618,7 +711,7 @@ class TelegramBot(BaseClass):
 
     def _clb_restart_hass(self, target_id, paramdict):
         if paramdict.get("value") and paramdict.get("value").lower() == "yes":
-            msg = "Restarting hass!"
+            msg = "Restarting home-assistant!"
             self.call_service(
                 'telegram_bot/answer_callback_query',
                 message=self._escape_markdown(msg),
@@ -631,7 +724,7 @@ class TelegramBot(BaseClass):
             self.call_service(
                 'homeassistant/restart')
         elif paramdict.get("value") and paramdict.get("value").lower() == "no":
-            msg = "Ok. Not restarting hass!"
+            msg = "Ok. Not restarting home-assistant!"
             self.call_service(
                 'telegram_bot/answer_callback_query',
                 message=self._escape_markdown(msg),
@@ -717,7 +810,7 @@ class TelegramBot(BaseClass):
         for entity in statedict:
             if re.match(f"^sensor.({'|'.join(sensorlist)}).*", entity, re.IGNORECASE):
                 filtered=False
-                if self._filter_state_system is not None and re.search(self._filter_state_system, entity, re.IGNORECASE):
+                if self._filter_exclude_system is not None and re.search(self._filter_exclude_system, entity, re.IGNORECASE):
                     #check if entity is filtered 
                     filtered=True
                 if not filtered:
@@ -727,7 +820,7 @@ class TelegramBot(BaseClass):
                     if state is not None:
                         msg+=f"{friendly_name}: {state}{unit_of_measurement}\n"
         
-        for sensor in self._extend_state_system:
+        for sensor in self._extend_system:
             s = sensor.strip()
             self._log_debug(s)
             state = self.get_state(s)
@@ -744,3 +837,9 @@ class TelegramBot(BaseClass):
             target=target_id,
             message=self._escape_markdown(msg))
             
+    def _cmd_get_version(self, target_id):
+        msg = f"TelegramBot Version: {self._version}"
+        self.call_service(
+            'telegram_bot/send_message',
+            target=target_id,
+            message=self._escape_markdown(msg))
