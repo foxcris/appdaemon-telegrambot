@@ -26,7 +26,7 @@ Just copy the files
 * TelegramBot.py
 * Helper.py
 
-to your apps folder of appaemon and add the following configuration to your apps.yaml
+to your apps folder of appaemon and add the following configuration to your apps.yaml (example data shown for some parameters)
 ```
 TelegramBot:
   module:                   TelegramBot
