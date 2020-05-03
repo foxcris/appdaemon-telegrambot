@@ -1,7 +1,7 @@
 # appdaemon-telegrambot
 
 Simple bot to control your home-assistant via a telegram chatbot.
-As a requirements, the telegram platform has to be configured in home-assistant (https://www.home-assistant.io/components/notify.telegram/).
+As a requirement, the telegram platform has to be configured in home-assistant (https://www.home-assistant.io/components/notify.telegram/).
 
 Currently the bot provides a simple request/response command interface. The following commands are available:
 * /help
@@ -17,6 +17,8 @@ Currently the bot provides a simple request/response command interface. The foll
 * /start_vacuum: Start vacuum
 * /stop_vacuum: Stop running vacuum
 * /restart_hass: Restart hass
+* /state_system: State of home-assistant"
+* /get_version: Get version of telegrambot
 
 ## Configuration
 ### appdaemon configuration
@@ -30,13 +32,23 @@ TelegramBot:
   module:                   TelegramBot
   class:                    TelegramBot
   debug:                    True
+  extend_system:            sensor.date,sensor.heartbeat
+  filter_exclude_system:    (load_1m|load5m)
+  filter_exclude_cover:     (bathroom)
+  filter_exclude_vacuum:    (xiaomi)
+  filter_exclude_light:     (fireplace)
+  filter_exclude_climate:   (guestroom)
+  filter_exclude_person:    (john)
 ```
+
+extend_system: comma separated list of complete entities to include in the system report
+filter_exclude_*: python regex to exclude entities from being reported/used from telegrambot
 
 The file Helper.py is also used by one of my [other](https://github.com/foxcris/appdaemon-blinds-control) appdaemon project. In both projects the same file is used!
 ### home-assistant configuration
 
 # Screenshots
-![Available commands](https://raw.githubusercontent.com/foxcris/appdaemon-telegrambot/master/images/Screenshot_20190310_123130_org.telegram.messenger.jpg "Available commands")
-![State covers](https://raw.githubusercontent.com/foxcris/appdaemon-telegrambot/master/images/Screenshot_20190403_210457_org.telegram.messenger.jpg "State covers")
-![State vacuum](https://raw.githubusercontent.com/foxcris/appdaemon-telegrambot/master/images/Screenshot_20190403_210508_org.telegram.messenger.jpg "State vacuum")
-![Open cover](https://raw.githubusercontent.com/foxcris/appdaemon-telegrambot/master/images/Screenshot_20190403_210559_org.telegram.messenger.jpg "Open cover")
+![Available commands](https://raw.githubusercontent.com/foxcris/appdaemon-telegrambot/master/images/Screenshot_20190310_123130_org.telegram.messenger.jpg  =250x250 "Available commands")
+![State covers](https://raw.githubusercontent.com/foxcris/appdaemon-telegrambot/master/images/Screenshot_20190403_210457_org.telegram.messenger.jpg  =250x250 "State covers")
+![State vacuum](https://raw.githubusercontent.com/foxcris/appdaemon-telegrambot/master/images/Screenshot_20190403_210508_org.telegram.messenger.jpg  =250x250 "State vacuum")
+![Open cover](https://raw.githubusercontent.com/foxcris/appdaemon-telegrambot/master/images/Screenshot_20190403_210559_org.telegram.messenger.jpg  =250x250 "Open cover")
