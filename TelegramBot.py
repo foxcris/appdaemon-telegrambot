@@ -127,12 +127,13 @@ class TelegramBot(BaseClass):
         statedict = self.get_state()
         for entity in statedict:
             if re.match('^person.*', entity, re.IGNORECASE):
+                self._log_debug(f"Person: {entity}")
                 filtered=False
                 if self._filter_exclude_person is not None and re.search(self._filter_exclude_person, entity, re.IGNORECASE):
                     #check if entity is filtered 
                     filtered=True
                 if not filtered:
-                    self._log_debug(statedict.get(entity))
+                    self._log_debug(f"statedict: {statedict.get(entity)}")
                     #entity_id = statedict.get(entity).get("entity_id")
                     entity_id = entity
                     state = statedict.get(entity).get("state")
@@ -146,16 +147,16 @@ class TelegramBot(BaseClass):
                         "attributes").get("gps_accuracy")
 
                     msg = f"{entity_id} {friendly_name}\nstate: {state}\nlatitude: {latitude}\nlongitude: {longitude}\ngps_accuracy: {gps_accuracy}\n\n"
-        self._log_debug(msg)
-        self.call_service(
-            'telegram_bot/send_message',
-            target=target_id,
-            message=self._escape_markdown(msg))
-        self.call_service(
-            'telegram_bot/send_location',
-            target=target_id,
-            latitude=latitude,
-            longitude=longitude)
+                    self._log_debug(f"msg person: {msg}")
+                    self.call_service(
+                        'telegram_bot/send_message',
+                        target=target_id,
+                        message=self._escape_markdown(msg))
+                    self.call_service(
+                        'telegram_bot/send_location',
+                        target=target_id,
+                        latitude=latitude,
+                        longitude=longitude)
 
     def _cmd_state_vacuum(self, target_id):
         statedict = self.get_state()
