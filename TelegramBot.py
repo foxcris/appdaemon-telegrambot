@@ -5,7 +5,8 @@ import hashlib
 class TelegramBot(BaseClass):
 
     def initialize(self):
-        self._commanddict = {"/state_cover": {"desc": "State of cover", "method": self._cmd_state_cover},
+        self._commanddict = {"/help": {"desc": "Help", "method": self._cmd_help},
+                             "/state_cover": {"desc": "State of cover", "method": self._cmd_state_cover},
                              "/state_vacuum": {"desc": "State of vacuum", "method": self._cmd_state_vacuum},
                              "/state_light": {"desc": "State of light", "method": self._cmd_state_light},
                              "/state_climate": {"desc": "State of climate", "method": self._cmd_state_climate},
@@ -18,14 +19,15 @@ class TelegramBot(BaseClass):
                              "/stop_vacuum": {"desc": "Stop running vacuum", "method": self._cmd_stop_vacuum},
                              "/restart_hass": {"desc": "Restart hass", "method": self._cmd_restart_hass},
                              "/state_system": {"desc": "State of home-assistant", "method": self._cmd_state_system},
+                             "/state_sensor": {"desc": "State of sensors", "method": self._cmd_state_sensor},
                              "/get_version": {"desc": "Get version of telegrambot", "method": self._cmd_get_version}}
-        self._callbackdict = {"/restart_hass": {"desc": "Restart hass", "method": self._clb_restart_hass},
-                              "/start_vacuum": {"desc": "Start vacuum", "method": self._clb_start_vacuum},
-                              "/stop_vacuum": {"desc": "Start vacuum", "method": self._clb_stop_vacuum},
-                              "/open_cover": {"desc": "Open cover", "method": self._clb_open_cover},
-                              "/close_cover": {"desc": "Close cover", "method": self._clb_close_cover},
-                              "/turnoff_light": {"desc": "Turn off light", "method": self._clb_turn_off_light},
-                              "/turnon_light": {"desc": "Turn on light", "method": self._clb_turn_on_light}}
+        self._callbackdict = {"/clb_restart_hass": {"desc": "Restart hass", "method": self._clb_restart_hass},
+                              "/clb_start_vacuum": {"desc": "Start vacuum", "method": self._clb_start_vacuum},
+                              "/clb_stop_vacuum": {"desc": "Start vacuum", "method": self._clb_stop_vacuum},
+                              "/clb_open_cover": {"desc": "Open cover", "method": self._clb_open_cover},
+                              "/clb_close_cover": {"desc": "Close cover", "method": self._clb_close_cover},
+                              "/clb_turnoff_light": {"desc": "Turn off light", "method": self._clb_turn_off_light},
+                              "/clb_turnon_light": {"desc": "Turn on light", "method": self._clb_turn_on_light}}
 
         self.listen_event(self._receive_telegram_command, 'telegram_command')
         self.listen_event(self._receive_telegram_callback, 'telegram_callback')
@@ -38,30 +40,23 @@ class TelegramBot(BaseClass):
         self._hash_entityid_dict = dict()
         self._version=1.0
         
+        self._log_debug(self.args)
+
         #handle extend
         self._extend_system = None
         if self.args["extend_system"] is not None and self.args["extend_system"]!="":
             self._extend_system=self.args["extend_system"].split(',')
+
+        self._filter_blacklist = None
+        if self.args.get("filter_blacklist", None) is not None and self.args.get("filter_blacklist")!="":
+            self._filter_blacklist=self.args.get("filter_blacklist")
+        self._log_debug(self._filter_blacklist)
         
-        #handle filter
-        self._filter_exclude_system = None
-        if self.args["filter_exclude_system"] is not None and self.args["filter_exclude_system"]!="":
-            self._filter_exclude_system=self.args["filter_exclude_system"]
-        self._filter_exclude_cover = None
-        if self.args["filter_exclude_cover"] is not None and self.args["filter_exclude_cover"]!="":
-            self._filter_exclude_cover=self.args["filter_exclude_cover"]
-        self._filter_exclude_vacuum = None
-        if self.args["filter_exclude_vacuum"] is not None and self.args["filter_exclude_vacuum"]!="":
-            self._filter_exclude_vacuum=self.args["filter_exclude_vacuum"]
-        self._filter_exclude_light = None
-        if self.args["filter_exclude_light"] is not None and self.args["filter_exclude_light"]!="":
-            self._filter_exclude_light=self.args["filter_exclude_light"]
-        self._filter_exclude_climate = None
-        if self.args["filter_exclude_climate"] is not None and self.args["filter_exclude_climate"]!="":
-            self._filter_exclude_climate=self.args["filter_exclude_climate"]
-        self._filter_exclude_person = None
-        if self.args["filter_exclude_person"] is not None and self.args["filter_exclude_person"]!="":
-            self._filter_exclude_person=self.args["filter_exclude_person"]
+        self._filter_whitelist = None
+        if self.args.get("filter_whitelist", None) is not None and self.args.get("filter_whitelist")!="":
+            self._filter_whitelist=self.args.get("filter_whitelist")
+        self._log_debug(self._filter_whitelist)
+
 
     def _receive_telegram_command(self, event_id, payload_event, *args):
         user_id = payload_event['user_id']
@@ -71,17 +66,7 @@ class TelegramBot(BaseClass):
         self._log_debug(f"Telegram Command: user_id: {user_id}, chat_id: {chat_id}, command: {command}")
         self._log_debug(f"Paylod_event: {payload_event}")
 
-        if command == "/help":
-            msg = "The following commands are available:\n/help: This help\n"
-            for command in self._commanddict:
-                desc = self._commanddict.get(command).get("desc")
-                msg += f"{command} : {desc}\n"
-            self._log_debug(msg)
-            self.call_service(
-                'telegram_bot/send_message',
-                target=user_id,
-                message=self._escape_markdown(msg))
-        elif command in self._commanddict:
+        if command in self._commanddict:
             method = self._commanddict.get(command).get('method')
             method(user_id)
         else:
@@ -95,145 +80,105 @@ class TelegramBot(BaseClass):
         msg = msg.replace("`", "\\`")
         msg = msg.replace("*", "\\*")
         msg = msg.replace("_", "\\_")
+
         return msg
 
+    def _cmd_help(self, target_id):
+        msg = "The following commands are available:\n/help: This help\n"
+        keyboard_options=list()
+        for command in self._commanddict:
+            desc = self._commanddict.get(command).get("desc")
+            msg += f"{command} : {desc}\n"
+            button=command.replace("/","").replace("_"," ")
+            keyboard_options.append({
+                'description': desc, 
+                'url': command,
+                'button': command})
+        self._log_debug(msg)
+        self._build_keyboard_answer(keyboard_options, target_id, keyboard_width=2)
+
     def _cmd_state_cover(self, target_id):
-        statedict = self.get_state()
+        statedict = self._get_state_filtered()
         msg = ""
         for entity in statedict:
             if re.match('^cover.*', entity, re.IGNORECASE):
-                filtered=False
-                if self._filter_exclude_cover is not None and re.search(self._filter_exclude_cover, entity, re.IGNORECASE):
-                    #check if entity is filtered 
-                    filtered=True
-                if not filtered:
-                    self._log_debug(statedict.get(entity))
-                    #entity_id = statedict.get(entity).get("entity_id")
-                    entity_id = entity
-                    state = statedict.get(entity).get("state")
-                    friendly_name = statedict.get(entity).get(
-                        "attributes").get("friendly_name")
-                    current_position = statedict.get(entity).get(
-                        "attributes").get("current_position")
+                self._log_debug(statedict.get(entity))
+                state = statedict.get(entity).get("state")
+                desc = self._getid(statedict, entity)
+                current_position = statedict.get(entity).get(
+                    "attributes").get("current_position")
 
-                    msg += f"{entity_id} {friendly_name}\nstate: {state}\ncurrent_position: {current_position}\n\n"
+                msg += f"{desc}\nstate: {state}\ncurrent_position: {current_position}\n\n"
         self._log_debug(msg)
-        self.call_service(
-            'telegram_bot/send_message',
-            target=target_id,
-            message=self._escape_markdown(msg))
+        self._send_message(msg, target_id)
 
     def _cmd_state_person(self, target_id):
-        statedict = self.get_state()
+        statedict = self._get_state_filtered()
         for entity in statedict:
             if re.match('^person.*', entity, re.IGNORECASE):
                 self._log_debug(f"Person: {entity}")
-                filtered=False
-                if self._filter_exclude_person is not None and re.search(self._filter_exclude_person, entity, re.IGNORECASE):
-                    #check if entity is filtered 
-                    filtered=True
-                if not filtered:
-                    self._log_debug(f"statedict: {statedict.get(entity)}")
-                    #entity_id = statedict.get(entity).get("entity_id")
-                    entity_id = entity
-                    state = statedict.get(entity).get("state")
-                    friendly_name = statedict.get(entity).get(
-                        "attributes").get("friendly_name")
-                    latitude = statedict.get(entity).get(
-                        "attributes").get("latitude")
-                    longitude = statedict.get(entity).get(
-                        "attributes").get("longitude")
-                    gps_accuracy = statedict.get(entity).get(
-                        "attributes").get("gps_accuracy")
+                self._log_debug(f"statedict: {statedict.get(entity)}")
+                state = statedict.get(entity).get("state")
+                desc = self._getid(statedict,entity)
+                latitude = statedict.get(entity).get(
+                    "attributes").get("latitude")
+                longitude = statedict.get(entity).get(
+                    "attributes").get("longitude")
+                gps_accuracy = statedict.get(entity).get(
+                    "attributes").get("gps_accuracy")
 
-                    msg = f"{entity_id} {friendly_name}\nstate: {state}\nlatitude: {latitude}\nlongitude: {longitude}\ngps_accuracy: {gps_accuracy}\n\n"
-                    self._log_debug(f"msg person: {msg}")
-                    self.call_service(
-                        'telegram_bot/send_message',
-                        target=target_id,
-                        message=self._escape_markdown(msg))
-                    self.call_service(
-                        'telegram_bot/send_location',
-                        target=target_id,
-                        latitude=latitude,
-                        longitude=longitude)
+                msg = f"{desc}\nstate: {state}\nlatitude: {latitude}\nlongitude: {longitude}\ngps_accuracy: {gps_accuracy}\n\n"
+                self._log_debug(f"msg person: {msg}")
+                self._send_message(msg, target_id)
+                self.call_service(
+                    'telegram_bot/send_location',
+                    target=target_id,
+                    latitude=latitude,
+                    longitude=longitude)
 
     def _cmd_state_vacuum(self, target_id):
-        statedict = self.get_state()
+        statedict = self._get_state_filtered()
         msg = ""
         for entity in statedict:
             if re.match('^vacuum.*', entity, re.IGNORECASE):
-                filtered=False
-                if self._filter_exclude_vacuum is not None and re.search(self._filter_exclude_vacuum, entity, re.IGNORECASE):
-                    #check if entity is filtered 
-                    filtered=True
-                if not filtered:
-                    self._log_debug(statedict.get(entity))
-                    #entity_id = statedict.get(entity).get("entity_id")
-                    entity_id = entity
-                    state = statedict.get(entity).get("state")
-                    friendly_name = statedict.get(entity).get(
-                        "attributes").get("friendly_name")
-                    battery_level = statedict.get(entity).get(
-                        "attributes").get("battery_level")
+                self._log_debug(statedict.get(entity))
+                state = statedict.get(entity).get("state")
+                desc = self._getid(statedict,entity)
+                battery_level = statedict.get(entity).get(
+                    "attributes").get("battery_level")
 
-                    msg += f"{entity_id} {friendly_name}\nstate: {state}\nbattery_level: {battery_level}\n\n"
+                msg += f"{desc}\nstate: {state}\nbattery_level: {battery_level}\n\n"
         self._log_debug(msg)
-        self.call_service(
-            'telegram_bot/send_message',
-            target=target_id,
-            message=self._escape_markdown(msg))
+        self._send_message(msg, target_id)
 
     def _cmd_state_light(self, target_id):
-        statedict = self.get_state()
-        msg = ""
+        statedict = self._get_state_filtered()
+        msg=""
         for entity in statedict:
             if re.match('^light.*', entity, re.IGNORECASE):
-                filtered=False
-                if self._filter_exclude_light is not None and re.search(self._filter_exclude_light, entity, re.IGNORECASE):
-                    #check if entity is filtered 
-                    filtered=True
-                if not filtered:
-                    self._log_debug(statedict.get(entity))
-                    #entity_id = statedict.get(entity).get("entity_id")
-                    entity_id = entity
-                    state = statedict.get(entity).get("state")
-                    friendly_name = statedict.get(entity).get(
-                        "attributes").get("friendly_name")
+                self._log_debug(statedict.get(entity))
+                state = statedict.get(entity).get("state")
+                desc = self._getid(statedict,entity)
+                msg += f"{desc}\nstate: {state}\n\n"
 
-                    msg += f"{entity_id} {friendly_name}\nstate: {state}\n\n"
         self._log_debug(msg)
-        self.call_service(
-            'telegram_bot/send_message',
-            target=target_id,
-            message=self._escape_markdown(msg))
+        self._send_message(msg, target_id)
 
     def _cmd_state_climate(self, target_id):
-        statedict = self.get_state()
+        statedict = self._get_state_filtered()
         msg = ""
         for entity in statedict:
             if re.match('^climate.*', entity, re.IGNORECASE):
-                filtered=False
-                if self._filter_exclude_climate is not None and re.search(self._filter_exclude_climate, entity, re.IGNORECASE):
-                    #check if entity is filtered 
-                    filtered=True
-                if not filtered:
-                    self._log_debug(statedict.get(entity))
-                    #entity_id = statedict.get(entity).get("entity_id")
-                    entity_id = entity
-                    state = statedict.get(entity).get("state")
-                    current_temperature = statedict.get(entity).get(
-                        "attributes").get("current_temperature")
-                    temperature = statedict.get(entity).get(
-                        "attributes").get("temperature")
-                    friendly_name = statedict.get(entity).get(
-                        "attributes").get("friendly_name")
+                self._log_debug(statedict.get(entity))
+                state = statedict.get(entity).get("state")
+                current_temperature = statedict.get(entity).get(
+                    "attributes").get("current_temperature")
+                temperature = statedict.get(entity).get(
+                    "attributes").get("temperature")
+                desc = self._getid(statedict,entity)
+                msg += f"{desc}\nstate: {state}\ncurrent temperature: {current_temperature}\ntemperature: {temperature}.\n\n"
 
-                    msg += f"{entity_id} {friendly_name}\nstate: {state}\ncurrent temperature: {current_temperature}\ntemperature: {temperature}.\n\n"
-        self.call_service(
-            'telegram_bot/send_message',
-            target=target_id,
-            message=self._escape_markdown(msg))
+        self._send_message(msg, target_id)
 
     def _clb_open_cover(self, target_id, paramdict):
         hashvalue = paramdict.get("entity_id")
@@ -241,10 +186,7 @@ class TelegramBot(BaseClass):
         if hashvalue == "all":
             self.call_service("cover/open_cover", entity_id="all")
             msg = "Open all covers!"
-            self.call_service(
-                'telegram_bot/send_message',
-                target=target_id,
-                message=self._escape_markdown(msg))
+            self._send_message(msg, target_id)
             self.call_service(
                 'telegram_bot/answer_callback_query',
                 message=self._escape_markdown(msg),
@@ -254,106 +196,50 @@ class TelegramBot(BaseClass):
             msg=f"Open cover {entity_id} ({friendly_name})"
             self.call_service("cover/open_cover",
                             entity_id=entity_id)
-            self.call_service(
-                'telegram_bot/send_message',
-                target=target_id,
-                message=self._escape_markdown(msg))
+            self._send_message(msg, target_id)
             self.call_service(
                 'telegram_bot/answer_callback_query',
                 message=self._escape_markdown(msg),
                 callback_query_id=target_id)
         else:
             msg = "Unkown entity. Please do not resent old commands!"
-            self.call_service(
-                'telegram_bot/send_message',
-                target=target_id,
-                message=self._escape_markdown(msg))
+            self._send_message(msg, target_id)
 
     def _cmd_open_cover(self, target_id):
-        msg = "Which cover do you want to open?\n"
-        statedict = self.get_state()
-        keyboard = list()
-        keyboardrow = list()
-        count = 1
-        keyboardrow.append(
-            (count, f"/open_cover?entity_id=all"))
-        msg += f"{count}: Open all covers\n\n"
-        count += 1
+        msg = "Which cover do you want to open?\n\n"
+        statedict = self._get_state_filtered()
+        keyboard_options=list()
+        keyboard_options.append({
+                    'description': f"Open all covers", 
+                    'url':f"/clb_open_cover?entity_id=all"})
         for entity in statedict:
             if re.match('^cover.*', entity, re.IGNORECASE):
-                filtered=False
-                if self._filter_exclude_cover is not None and re.search(self._filter_exclude_cover, entity, re.IGNORECASE):
-                    #check if entity is filtered 
-                    filtered=True
-                if not filtered:
-                    self._log_debug(statedict.get(entity))
-                    #entity_id = statedict.get(entity).get("entity_id")
-                    entity_id = entity
-                    hashvalue = self._get_hash_from_entityid(entity_id)
-                    friendly_name = statedict.get(entity).get(
-                        "attributes").get("friendly_name")
-                    keyboardrow.append(
-                        (count, f"/open_cover?entity_id={hashvalue}"))
-                    msg += f"{count}: {entity_id} ({friendly_name})\n\n"
-                    count += 1
-                    # start a new row after 8 buttons
-                    # only 8 buttins can be shown in one line (atleast on my phone)
-                    if count % 8 == 0:
-                        keyboard.append(keyboardrow)
-                        keyboardrow = list()
-
-        if len(keyboardrow) > 0:
-            keyboard.append(keyboardrow)
-        self._log_debug(msg)
-        self._log_debug(keyboard)
-        self.call_service(
-            'telegram_bot/send_message',
-            target=target_id,
-            message=self._escape_markdown(msg),
-            inline_keyboard=keyboard)
+                self._log_debug(statedict.get(entity))
+                hashvalue = self._get_hash_from_entityid(entity)
+                desc = self._getid(statedict,entity)
+                keyboard_options.append({
+                    'description': f"{desc}", 
+                    'url':f"/clb_open_cover?entity_id={hashvalue}"})
+        
+        self._build_keyboard_answer(keyboard_options, target_id, msg)
 
     def _cmd_close_cover(self, target_id):
-        msg = "Which cover do you want to close?\n"
-        statedict = self.get_state()
-        keyboard = list()
-        keyboardrow = list()
-        count = 1
-        keyboardrow.append(
-            (count, f"/close_cover?entity_id=all"))
-        msg += f"{count}: Close all covers\n\n"
-        count += 1
+        msg = "Which cover do you want to close?\n\n"
+        statedict = self._get_state_filtered()
+        keyboard_options=list()
+        keyboard_options.append({
+                    'description': f"Close all covers", 
+                    'url':f"/clb_close_cover?entity_id=all"})
         for entity in statedict:
             if re.match('^cover.*', entity, re.IGNORECASE):
-                filtered=False
-                if self._filter_exclude_cover is not None and re.search(self._filter_exclude_cover, entity, re.IGNORECASE):
-                    #check if entity is filtered 
-                    filtered=True
-                if not filtered:
-                    self._log_debug(statedict.get(entity))
-                    #entity_id = statedict.get(entity).get("entity_id")
-                    entity_id = entity
-                    hashvalue = self._get_hash_from_entityid(entity_id)
-                    friendly_name = statedict.get(entity).get(
-                        "attributes").get("friendly_name")
-                    self._log_debug("Len Callback: %s" % len(f"{entity_id}".encode('utf-8')))
-                    keyboardrow.append(
-                        (count, f"/close_cover?entity_id={hashvalue}"))
-                    msg += f"{count}: {entity_id} ({friendly_name})\n\n"
-                    count += 1
-                    # start a new row after 8 buttons
-                    # only 8 buttons can be shown in one line (atleast on my phone)
-                    if count % 8 == 0:
-                        keyboard.append(keyboardrow)
-                        keyboardrow = list()
-
-        if len(keyboardrow) > 0:
-            keyboard.append(keyboardrow)
-
-        self.call_service(
-            'telegram_bot/send_message',
-            target=target_id,
-            message=self._escape_markdown(msg),
-            inline_keyboard=keyboard)
+                self._log_debug(statedict.get(entity))
+                hashvalue = self._get_hash_from_entityid(entity)
+                desc = self._getid(statedict,entity)
+                keyboard_options.append({
+                    'description': f"{desc}", 
+                    'url':f"/clb_close_cover?entity_id={hashvalue}"})
+        
+        self._build_keyboard_answer(keyboard_options, target_id, msg)
 
     def _clb_close_cover(self, target_id, paramdict):
         hashvalue = paramdict.get("entity_id")
@@ -361,10 +247,7 @@ class TelegramBot(BaseClass):
         if hashvalue == "all":
             self.call_service("cover/close_cover", entity_id="all")
             msg = "Close all covers!"
-            self.call_service(
-                'telegram_bot/send_message',
-                target=target_id,
-                message=self._escape_markdown(msg))
+            self._send_message(msg, target_id)
             self.call_service(
                 'telegram_bot/answer_callback_query',
                 message=self._escape_markdown(msg),
@@ -372,10 +255,7 @@ class TelegramBot(BaseClass):
         elif entity_id is not None:
             friendly_name = self.get_state(entity_id, attribute="friendly_name")
             msg=f"Close cover {entity_id} ({friendly_name})"
-            self.call_service(
-                'telegram_bot/send_message',
-                target=target_id,
-                message=self._escape_markdown(msg))
+            self._send_message(msg, target_id)
             self.call_service(
                 'telegram_bot/answer_callback_query',
                 message=self._escape_markdown(msg),
@@ -384,52 +264,25 @@ class TelegramBot(BaseClass):
                               entity_id=entity_id)
         else:
             msg = "Unkown entity. Please do not resent old commands!"
-            self.call_service(
-                'telegram_bot/send_message',
-                target=target_id,
-                message=self._escape_markdown(msg))
+            self._send_message(msg, target_id)
 
     def _cmd_turn_off_light(self, target_id):
-        msg = "Which light do you want to turn off?\n"
-        statedict = self.get_state()
-        keyboard = list()
-        keyboardrow = list()
-        count = 1
-        keyboardrow.append(
-            (count, f"/turnoff_light?entity_id=all"))
-        msg += f"{count}: Turn off all lights\n\n"
-        count += 1
+        msg = "Which light do you want to turn off?\n\n"
+        statedict = self._get_state_filtered()
+        keyboard_options=list()
+        keyboard_options.append({
+                    'description': f"Turn off all lights", 
+                    'url':f"/clb_turnoff_light?entity_id=all"})
         for entity in statedict:
             if re.match('^light.*', entity, re.IGNORECASE):
-                filtered=False
-                if self._filter_exclude_light is not None and re.search(self._filter_exclude_light, entity, re.IGNORECASE):
-                    #check if entity is filtered 
-                    filtered=True
-                if not filtered:
-                    self._log_debug(statedict.get(entity))
-                    #entity_id = statedict.get(entity).get("entity_id")
-                    entity_id = entity
-                    hashvalue = self._get_hash_from_entityid(entity_id)
-                    friendly_name = statedict.get(entity).get(
-                        "attributes").get("friendly_name")
-                    keyboardrow.append(
-                        (count, f"/turnoff_light?entity_id={hashvalue}"))
-                    msg += f"{count}: {entity_id} ({friendly_name})\n\n"
-                    count += 1
-                    # start a new row after 8 buttons
-                    # only 8 buttins can be shown in one line (atleast on my phone)
-                    if count % 8 == 0:
-                        keyboard.append(keyboardrow)
-                        keyboardrow = list()
-
-        if len(keyboardrow) > 0:
-            keyboard.append(keyboardrow)
-
-        self.call_service(
-            'telegram_bot/send_message',
-            target=target_id,
-            message=self._escape_markdown(msg),
-            inline_keyboard=keyboard)
+                self._log_debug(statedict.get(entity))
+                hashvalue = self._get_hash_from_entityid(entity)
+                desc = self._getid(statedict,entity)
+                keyboard_options.append({
+                    'description': f"{desc}", 
+                    'url':f"/clb_turnoff_light?entity_id={hashvalue}"})
+        
+        self._build_keyboard_answer(keyboard_options, target_id, msg,)
 
     def _clb_turn_off_light(self, target_id, paramdict):
         hashvalue = paramdict.get("entity_id")
@@ -437,10 +290,7 @@ class TelegramBot(BaseClass):
         if hashvalue == "all":
             self.call_service("light/turn_off", entity_id="all")
             msg = "Turn off all lights!"
-            self.call_service(
-                'telegram_bot/send_message',
-                target=target_id,
-                message=self._escape_markdown(msg))
+            self._send_message(msg, target_id)
             self.call_service(
                 'telegram_bot/answer_callback_query',
                 message=self._escape_markdown(msg),
@@ -448,10 +298,7 @@ class TelegramBot(BaseClass):
         elif entity_id is not None:
             friendly_name = self.get_state(entity_id, attribute="friendly_name")
             msg=f"Turn off light {entity_id} ({friendly_name})"
-            self.call_service(
-                'telegram_bot/send_message',
-                target=target_id,
-                message=self._escape_markdown(msg))
+            self._send_message(msg, target_id)
             self.call_service(
                 'telegram_bot/answer_callback_query',
                 message=self._escape_markdown(msg),
@@ -460,52 +307,25 @@ class TelegramBot(BaseClass):
                               entity_id=entity_id)
         else:
             msg = "Unkown entity. Please do not resent old commands!"
-            self.call_service(
-                'telegram_bot/send_message',
-                target=target_id,
-                message=self._escape_markdown(msg))
+            self._send_message(msg, target_id)
 
     def _cmd_turn_on_light(self, target_id):
-        msg = "Which light do you want to turn on?\n"
-        statedict = self.get_state()
-        keyboard = list()
-        keyboardrow = list()
-        count = 1
-        keyboardrow.append(
-            (count, f"/turnon_light?entity_id=all"))
-        msg += f"{count}: Turn on all lights\n\n"
-        count += 1
+        msg = "Which light do you want to turn on?\n\n"
+        statedict = self._get_state_filtered()
+        keyboard_options=list()
+        keyboard_options.append({
+                    'description': f"Turn on all lights", 
+                    'url':f"/clb_turnon_light?entity_id=all"})
         for entity in statedict:
             if re.match('^light.*', entity, re.IGNORECASE):
-                filtered=False
-                if self._filter_exclude_light is not None and re.search(self._filter_exclude_light, entity, re.IGNORECASE):
-                    #check if entity is filtered 
-                    filtered=True
-                if not filtered:
-                    self._log_debug(statedict.get(entity))
-                    #entity_id = statedict.get(entity).get("entity_id")
-                    entity_id = entity
-                    hashvalue = self._get_hash_from_entityid(entity_id)
-                    friendly_name = statedict.get(entity).get(
-                        "attributes").get("friendly_name")
-                    keyboardrow.append(
-                        (count, f"/turnon_light?entity_id={hashvalue}"))
-                    msg += f"{count}: {entity_id} ({friendly_name})\n\n"
-                    count += 1
-                    # start a new row after 8 buttons
-                    # only 8 buttins can be shown in one line (atleast on my phone)
-                    if count % 8 == 0:
-                        keyboard.append(keyboardrow)
-                        keyboardrow = list()
-
-        if len(keyboardrow) > 0:
-            keyboard.append(keyboardrow)
-
-        self.call_service(
-            'telegram_bot/send_message',
-            target=target_id,
-            message=self._escape_markdown(msg),
-            inline_keyboard=keyboard)
+                self._log_debug(statedict.get(entity))
+                hashvalue = self._get_hash_from_entityid(entity)
+                desc = self._getid(statedict,entity)
+                keyboard_options.append({
+                    'description': f"{desc}", 
+                    'url':f"/clb_turnon_light?entity_id={hashvalue}"})
+        
+        self._build_keyboard_answer(keyboard_options, target_id, msg)
 
     def _clb_turn_on_light(self, target_id, paramdict):
         hashvalue = paramdict.get("entity_id")
@@ -513,10 +333,7 @@ class TelegramBot(BaseClass):
         if hashvalue == "all":
             self.call_service("light/turn_on", entity_id="all")
             msg = "Turn on all lights!"
-            self.call_service(
-                'telegram_bot/send_message',
-                target=target_id,
-                message=self._escape_markdown(msg))
+            self._send_message(msg, target_id)
             self.call_service(
                 'telegram_bot/answer_callback_query',
                 message=self._escape_markdown(msg),
@@ -524,10 +341,7 @@ class TelegramBot(BaseClass):
         elif entity_id is not None:
             friendly_name = self.get_state(entity_id, attribute="friendly_name")
             msg=f"Turn on light {entity_id} ({friendly_name})"
-            self.call_service(
-                'telegram_bot/send_message',
-                target=target_id,
-                message=self._escape_markdown(msg))
+            self._send_message(msg, target_id)
             self.call_service(
                 'telegram_bot/answer_callback_query',
                 message=self._escape_markdown(msg),
@@ -536,10 +350,7 @@ class TelegramBot(BaseClass):
                               entity_id=entity_id)
         else:
             msg = "Unkown entity. Please do not resent old commands!"
-            self.call_service(
-                'telegram_bot/send_message',
-                target=target_id,
-                message=self._escape_markdown(msg))
+            self._send_message(msg, target_id)
             self.call_service(
                 'telegram_bot/answer_callback_query',
                 message=self._escape_markdown(msg),
@@ -548,55 +359,27 @@ class TelegramBot(BaseClass):
 
     def _cmd_restart_hass(self, target_id):
         msg = "Restart home-assistant?"
-        keyboard = [[("Yes", "/restart_hass?value=yes"), ("No",
-                                                          "/restart_hass?value=no")]]
-        self.call_service(
-            'telegram_bot/send_message',
-            target=target_id,
-            message=self._escape_markdown(msg),
-            inline_keyboard=keyboard)
+        keyboard = [[("Yes", "/clb_restart_hass?value=yes"), ("No",
+                                                          "/clb_restart_hass?value=no")]]
+        self._send_message_with_inline_keyboard(msg, target_id, keyboard)
 
     def _cmd_start_vacuum(self, target_id):
-        msg = "Which vacuum do you want to start?\n"
-        statedict = self.get_state()
-        keyboard = list()
-        keyboardrow = list()
-        count = 1
+        msg = "Which vacuum do you want to start?\n\n"
+        statedict = self._get_state_filtered()
+        keyboard_options=list()
         for entity in statedict:
             if re.match('^vacuum.*', entity, re.IGNORECASE):
-                filtered=False
-                if self._filter_exclude_vacuum is not None and re.search(self._filter_exclude_vacuum, entity, re.IGNORECASE):
-                    #check if entity is filtered 
-                    filtered=True
-                if not filtered:
-                    self._log_debug(statedict.get(entity))
-                    #entity_id = statedict.get(entity).get("entity_id")
-                    entity_id = entity
-                    hashvalue = self._get_hash_from_entityid(entity_id)
-                    state = statedict.get(entity).get("state")
-                    friendly_name = statedict.get(entity).get(
-                        "attributes").get("friendly_name")
-                    battery_level = statedict.get(entity).get(
+                self._log_debug(statedict.get(entity))
+                hashvalue = self._get_hash_from_entityid(entity)
+                desc = self._getid(statedict,entity)
+                state = statedict.get(entity).get("state")
+                battery_level = statedict.get(entity).get(
                         "attributes").get("battery_level")
-                    keyboardrow.append(
-                        (count, f"/start_vacuum?entity_id={hashvalue}"))
-                    msg += f"{count}: {entity_id} ({friendly_name})\nstate: {state}\nbattery_level: {battery_level}\n\n"
-                    count += 1
-                    # start a new row after 8 buttons
-                    # only 8 buttins can be shown in one line (atleast on my phone)
-                    if count % 8 == 0:
-                        keyboard.append(keyboardrow)
-                        keyboardrow = list()
-
-        if len(keyboardrow) > 0:
-            keyboard.append(keyboardrow)
-        self._log_debug(msg)
-        self._log_debug(keyboard)
-        self.call_service(
-            'telegram_bot/send_message',
-            target=target_id,
-            message=self._escape_markdown(msg),
-            inline_keyboard=keyboard)
+                keyboard_options.append({
+                    'description': f"{desc}\nstate: {state}\nbattery_level: {battery_level}", 
+                    'url':f"/clb_start_vacuum?entity_id={hashvalue}"})
+        
+        self._build_keyboard_answer(keyboard_options, target_id, msg)
 
     def _clb_start_vacuum(self, target_id, paramdict):
         hashvalue = paramdict.get("entity_id")
@@ -604,10 +387,7 @@ class TelegramBot(BaseClass):
         if entity_id is not None:
             friendly_name = self.get_state(entity_id, attribute="friendly_name")
             msg=f"Starting vacuum {entity_id} ({friendly_name})"
-            self.call_service(
-                'telegram_bot/send_message',
-                target=target_id,
-                message=self._escape_markdown(msg))
+            self._send_message(msg, target_id)
             self.call_service(
                 'telegram_bot/answer_callback_query',
                 message=self._escape_markdown(msg),
@@ -616,10 +396,7 @@ class TelegramBot(BaseClass):
                               entity_id=entity_id)
         else:
             msg = "Unkown entity. Please do not resent old commands!"
-            self.call_service(
-                'telegram_bot/send_message',
-                target=target_id,
-                message=self._escape_markdown(msg))
+            self._send_message(msg, target_id)
             self.call_service(
                 'telegram_bot/answer_callback_query',
                 message=self._escape_markdown(msg),
@@ -627,47 +404,22 @@ class TelegramBot(BaseClass):
                 show_alert=True)
 
     def _cmd_stop_vacuum(self, target_id):
-        msg = "Which vacuum do you want to stop?\n"
-        statedict = self.get_state()
-        keyboard = list()
-        keyboardrow = list()
-        count = 1
+        msg = "Which vacuum do you want to stop?\n\n"
+        statedict = self._get_state_filtered()
+        keyboard_options=list()
         for entity in statedict:
             if re.match('^vacuum.*', entity, re.IGNORECASE):
-                filtered=False
-                if self._filter_exclude_vacuum is not None and re.search(self._filter_exclude_vacuum, entity, re.IGNORECASE):
-                    #check if entity is filtered 
-                    filtered=True
-                if not filtered:
-                    self._log_debug(statedict.get(entity))
-                    #entity_id = statedict.get(entity).get("entity_id")
-                    entity_id = entity
-                    hashvalue = self._get_hash_from_entityid(entity_id)
-                    state = statedict.get(entity).get("state")
-                    friendly_name = statedict.get(entity).get(
-                        "attributes").get("friendly_name")
-                    battery_level = statedict.get(entity).get(
+                self._log_debug(statedict.get(entity))
+                hashvalue = self._get_hash_from_entityid(entity)
+                desc = self._getid(statedict,entity)
+                state = statedict.get(entity).get("state")
+                battery_level = statedict.get(entity).get(
                         "attributes").get("battery_level")
+                keyboard_options.append({
+                    'description': f"{desc}\nstate: {state}\nbattery_level: {battery_level}", 
+                    'url':f"/clb_stop_vacuum?entity_id={hashvalue}"})
 
-                    keyboardrow.append(
-                        (count, f"/stop_vacuum?entity_id={hashvalue}"))
-                    msg += f"{count}: {entity_id} ({friendly_name})\nstate: {state}\nbattery_level: {battery_level}\n\n"
-                    count += 1
-                    # start a new row after 8 buttons
-                    # only 8 buttins can be shown in one line (atleast on my phone)
-                    if count % 8 == 0:
-                        keyboard.append(keyboardrow)
-                        keyboardrow = list()
-
-        if len(keyboardrow) > 0:
-            keyboard.append(keyboardrow)
-        self._log_debug(msg)
-        self._log_debug(keyboard)
-        self.call_service(
-            'telegram_bot/send_message',
-            target=target_id,
-            message=self._escape_markdown(msg),
-            inline_keyboard=keyboard)
+        self._build_keyboard_answer(keyboard_options, target_id, msg)
 
     def _clb_stop_vacuum(self, target_id, paramdict):
         hashvalue = paramdict.get("entity_id")
@@ -675,10 +427,7 @@ class TelegramBot(BaseClass):
         if entity_id is not None:
             friendly_name = self.get_state(entity_id, attribute="friendly_name")
             msg=f"Stopping vacuum {entity_id} ({friendly_name})"
-            self.call_service(
-                'telegram_bot/send_message',
-                target=target_id,
-                message=self._escape_markdown(msg))
+            self._send_message(msg, target_id)
             self.call_service(
                 'telegram_bot/answer_callback_query',
                 message=self._escape_markdown(msg),
@@ -687,10 +436,7 @@ class TelegramBot(BaseClass):
                               entity_id=entity_id)
         else:
             msg = "Unkown entity. Please do not resent old commands!"
-            self.call_service(
-                'telegram_bot/send_message',
-                target=target_id,
-                message=self._escape_markdown(msg))
+            self._send_message(msg, target_id)
 
     def _receive_telegram_callback(self, event_id, payload_event, *args):
         data_callback = payload_event['data'].lower()
@@ -709,19 +455,28 @@ class TelegramBot(BaseClass):
         if callback in self._callbackdict:
             method = self._callbackdict.get(callback).get('method')
             method(target_id=callback_id, paramdict=params)
+        if callback in self._commanddict:
+            method = self._commanddict.get(callback).get('method')
+            method(target_id=callback_id)
+            #https://python-telegram-bot.readthedocs.io/en/stable/telegram.callbackquery.html
+            #After the user presses an inline button, Telegram clients will display a progress 
+            #bar until you call answer. It is, therefore, necessary to react by calling 
+            #telegram.Bot.answer_callback_query even if no notification to the user is needed 
+            #(e.g., without specifying any of the optional parameters).
+            self.call_service(
+                'telegram_bot/answer_callback_query',
+                message="",
+                callback_query_id=callback_id)
 
     def _clb_restart_hass(self, target_id, paramdict):
         if paramdict.get("value") and paramdict.get("value").lower() == "yes":
             msg = "Restarting home-assistant!"
+            self._send_message(msg, target_id)
             self.call_service(
                 'telegram_bot/answer_callback_query',
                 message=self._escape_markdown(msg),
                 callback_query_id=target_id,
                 show_alert=True)
-            self.call_service(
-                'telegram_bot/send_message',
-                message=self._escape_markdown(msg),
-                callback_query_id=target_id)
             self.call_service(
                 'homeassistant/restart')
         elif paramdict.get("value") and paramdict.get("value").lower() == "no":
@@ -730,15 +485,13 @@ class TelegramBot(BaseClass):
                 'telegram_bot/answer_callback_query',
                 message=self._escape_markdown(msg),
                 callback_query_id=target_id)
-            self.call_service(
-                'telegram_bot/send_message',
-                message=self._escape_markdown(msg),
-                callback_query_id=target_id)
+            self._send_message(msg, target_id)
         else:
             msg = "Missing value!"
+            self._send_message(msg, target_id)
             self.call_service(
-                'telegram_bot/send_message',
-                message=self._escape_markdown(msg),
+                'telegram_bot/answer_callback_query',
+                message="",
                 callback_query_id=target_id)
 
     def _get_hash_from_entityid(self, entity_id):
@@ -752,7 +505,6 @@ class TelegramBot(BaseClass):
     def _get_entityid_from_hash(self, hashvalue):
         h = self._hash_entityid_dict.get(hashvalue,None)
         return h
-
 
     def _homeassistant_update_available(self, entity, attribute, old, new, duration):
         if new == "on":
@@ -807,40 +559,125 @@ class TelegramBot(BaseClass):
                         'last_boot']
         msg = ""
         
-        statedict = self.get_state()
+        statedict = self._get_state_filtered()
         for entity in statedict:
             if re.match(f"^sensor.({'|'.join(sensorlist)}).*", entity, re.IGNORECASE):
-                filtered=False
-                if self._filter_exclude_system is not None and re.search(self._filter_exclude_system, entity, re.IGNORECASE):
-                    #check if entity is filtered 
-                    filtered=True
-                if not filtered:
-                    state = self.get_state(entity)
-                    friendly_name=self.get_state(entity, attribute='friendly_name')
-                    unit_of_measurement=self.get_state(entity, attribute='unit_of_measurement')
-                    if state is not None:
-                        msg+=f"{friendly_name}: {state}{unit_of_measurement}\n"
+                state = self.get_state(entity)
+                desc = self._getid(statedict,entity)
+                unit_of_measurement=self.get_state(entity, attribute='unit_of_measurement')
+                if state is not None:
+                    msg+=f"{desc}: {state}{unit_of_measurement}\n"
         
         for sensor in self._extend_system:
             s = sensor.strip()
             self._log_debug(s)
             state = self.get_state(s)
-            friendly_name=self.get_state(s, attribute='friendly_name')
+            desc = self._getid(statedict, s)
             unit_of_measurement=self.get_state(s, attribute='unit_of_measurement')
             if unit_of_measurement is None:
                 unit_of_measurement=""
             if state is not None:
-                msg+=f"{friendly_name}: {state}{unit_of_measurement}\n"
+                msg+=f"{desc}: {state}{unit_of_measurement}\n"
 
         self._log_debug(msg)
-        self.call_service(
-            'telegram_bot/send_message',
-            target=target_id,
-            message=self._escape_markdown(msg))
+        self._send_message(msg, target_id)
             
     def _cmd_get_version(self, target_id):
         msg = f"TelegramBot Version: {self._version}"
+        self._send_message(msg, target_id)
+
+    def _build_keyboard_answer(self, items, target_id, msgprefix=None, msgsuffix=None, keyboard_width=8):
+        """ items: list of dictionaries in the form [{'description':'', 'url':''}]
+        """
+        keyboard = list()
+        keyboardrow = list()
+        count = 1
+        msg = ""
+        if msgprefix is not None:
+            msg = msgprefix
+
+        for item in items:
+            button = item.get('button',count)
+            url = item.get('url',"/help")
+            desc = item.get('description',"")
+            keyboardrow.append((button, url))
+            msg += f"{button}: {desc}\n"
+            count+=1
+            if count % keyboard_width == 0:
+                keyboard.append(keyboardrow)
+                keyboardrow = list()
+        
+        if len(keyboardrow) > 0:
+            keyboard.append(keyboardrow)
+        
+        self._log_debug(msg)
+        self._log_debug(keyboard)
+        if msgsuffix is not None:
+            msg+=msgsuffix
+        self._send_message_with_inline_keyboard(msg, target_id, keyboard)
+
+    def _cmd_state_sensor(self, target_id):
+        statedict = self._get_state_filtered()
+        msg = ""
+        for entity in statedict:
+            if re.match('^sensor.*', entity, re.IGNORECASE):
+                self._log_debug(statedict.get(entity))
+                state = statedict.get(entity).get("state")
+                desc = self._getid(statedict,entity)
+                msg += f"{desc}\nstate: {state}\n\n"
+
+        self._log_debug(msg)
+        self._log_debug(f"Len: {len(msg)}")
+        self._send_message(msg, target_id)
+
+    def _send_message(self, msg, target_id):
+        #https://python-telegram-bot.readthedocs.io/en/stable/telegram.constants.html?highlight=max%20length#telegram.constants.MAX_MESSAGE_LENGTH
+        while len(msg)>4096:
+            self.call_service(
+                'telegram_bot/send_message',
+                target=target_id,
+                message=self._escape_markdown(msg[:4096]))
+            msg=msg[4096:]
         self.call_service(
             'telegram_bot/send_message',
             target=target_id,
-            message=self._escape_markdown(msg))
+            message=self._escape_markdown(msg[:4096]))
+
+    def _send_message_with_inline_keyboard(self, msg, target_id, keyboard):
+        while len(msg)>4096:
+            self.call_service(
+                'telegram_bot/send_message',
+                target=target_id,
+                message=self._escape_markdown(msg[:4096]))
+            msg=msg[4096:]
+        self.call_service(
+            'telegram_bot/send_message',
+            target=target_id,
+            message=self._escape_markdown(msg),
+            inline_keyboard=keyboard)
+        
+    def _get_state_filtered(self):
+        statedict = self.get_state()
+        filtered_statedict=dict()
+        for entity in statedict:
+            #filter by blacklist
+            blacklisted=True
+            if self._filter_blacklist is not None:              
+                prepare="|".join(self._filter_blacklist)
+                blacklistregex=f"({prepare})"
+            else:
+                blacklistregex=""   
+            
+            #filter by whitelist
+            whitelisted=True    
+            if self._filter_whitelist is not None:
+                prepare="|".join(self._filter_whitelist)
+                whitelistregex=f"({prepare})"
+            else:
+                whitelistregex=".*"
+            
+            #apply filter
+            if not re.search(blacklistregex, entity, re.IGNORECASE) and re.search(whitelistregex, entity, re.IGNORECASE):
+                filtered_statedict.update({entity: statedict.get(entity)})
+            
+        return filtered_statedict

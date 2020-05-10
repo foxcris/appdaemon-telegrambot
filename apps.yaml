@@ -3,9 +3,7 @@ TelegramBot:
   class:                    TelegramBot
   debug:                    True
   extend_system:            "sensor.fritz_netmonitor_external_ip,sensor.fritz_netmonitor_transmission_rate_down,sensor.fritz_netmonitor_transmission_rate_up"
-  filter_exclude_system:    "network_in"
-  filter_exclude_cover:     ""
-  filter_exclude_vacuum:    ""
-  filter_exclude_light:     ""
-  filter_exclude_climate:   ""
-  filter_exclude_person:    ""
+  filter_blacklist:    
+    - "network_in"
+#  filter_whitelist:
+#    - sample

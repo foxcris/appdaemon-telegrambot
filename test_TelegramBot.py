@@ -61,13 +61,7 @@ class TestTelegramBot:
         # passed args
         given_that.passed_arg('debug').is_set_to('True')
         given_that.passed_arg('extend_system').is_set_to("sensor.fritz_netmonitor_transmission_rate_down,sensor.fritz_netmonitor_transmission_rate_up")
-        given_that.passed_arg('filter_exclude_system').is_set_to("network_in")
-        given_that.passed_arg('filter_exclude_cover').is_set_to("parents_room")
-        given_that.passed_arg('filter_exclude_vacuum').is_set_to("parents_room")
-        given_that.passed_arg('filter_exclude_light').is_set_to("parents_room")
-        given_that.passed_arg('filter_exclude_climate').is_set_to("parents_room")
-        given_that.passed_arg('filter_exclude_person').is_set_to("network_in")
-
+        given_that.passed_arg('filter_blacklist').is_set_to(["network_in", "parents_room", "mina"])
         telegrambot.initialize()
 
         assert_that(telegrambot) \
@@ -97,7 +91,7 @@ class TestTelegramBot:
         telegrambot._receive_telegram_command(None, payload_event)
 
         assert_that(
-            'telegram_bot/send_message').was.called_with(target=user_id, message=ANY)
+            'telegram_bot/send_message').was.called_with(target=user_id, message=ANY, inline_keyboard=ANY)
 
     # _receive_telegram_command
     # Fall2: command=/doesnotexits
@@ -150,14 +144,14 @@ class TestTelegramBot:
         caplog.set_level(logging.DEBUG)
         user_id = 1
 
-        given_that.passed_arg('filter_exclude_cover').is_set_to("(guest_room|parents_room|kids_room)")
+        given_that.passed_arg('filter_blacklist').is_set_to(['guest_room', 'parents_room', 'kids_room'])
         telegrambot.initialize()
 
         entity_id="cover.living_room"
         friendly_name="living_room"
         state="closed"
         current_position=0
-        msg = telegrambot._escape_markdown(f"{entity_id} {friendly_name}\nstate: {state}\ncurrent_position: {current_position}\n\n")
+        msg = telegrambot._escape_markdown(f"{friendly_name}\nstate: {state}\ncurrent_position: {current_position}\n\n")
 
         telegrambot._cmd_state_cover(user_id)
         assert_that(
@@ -168,7 +162,7 @@ class TestTelegramBot:
         caplog.set_level(logging.DEBUG)
         user_id = 1
 
-        given_that.passed_arg('filter_exclude_person').is_set_to("(antonia|emilia|mina)")
+        given_that.passed_arg('filter_blacklist').is_set_to(['antonia', 'emilia', 'mina'])
         telegrambot.initialize()
 
         entity_id="person.christopher"
@@ -177,7 +171,7 @@ class TestTelegramBot:
         latitude=52.5097612943
         longitude=13.3732985068
         gps_accuracy=20
-        msg = telegrambot._escape_markdown(f"{entity_id} {friendly_name}\nstate: {state}\nlatitude: {latitude}\nlongitude: {longitude}\ngps_accuracy: {gps_accuracy}\n\n")
+        msg = telegrambot._escape_markdown(f"{friendly_name}\nstate: {state}\nlatitude: {latitude}\nlongitude: {longitude}\ngps_accuracy: {gps_accuracy}\n\n")
 
         telegrambot._cmd_state_person(user_id)
 
@@ -191,14 +185,14 @@ class TestTelegramBot:
         caplog.set_level(logging.DEBUG)
         user_id = 1
 
-        given_that.passed_arg('filter_exclude_vacuum').is_set_to("(guest_room|parents_room|kids_room)")
+        given_that.passed_arg('filter_blacklist').is_set_to(['guest_room', 'parents_room', 'kids_room'])
         telegrambot.initialize()
 
         entity_id="vacuum.living_room"
         friendly_name="living_room"
         state="docked"
         battery_level=2.3
-        msg = telegrambot._escape_markdown(f"{entity_id} {friendly_name}\nstate: {state}\nbattery_level: {battery_level}\n\n")
+        msg = telegrambot._escape_markdown(f"{friendly_name}\nstate: {state}\nbattery_level: {battery_level}\n\n")
 
         telegrambot._cmd_state_vacuum(user_id)
 
@@ -210,13 +204,13 @@ class TestTelegramBot:
         caplog.set_level(logging.DEBUG)
         user_id = 1
 
-        given_that.passed_arg('filter_exclude_light').is_set_to("(guest_room|parents_room|kids_room)")
+        given_that.passed_arg('filter_blacklist').is_set_to(['guest_room', 'parents_room', 'kids_room'])
         telegrambot.initialize()
 
         entity_id="light.living_room"
         friendly_name="living_room"
         state="off"
-        msg = telegrambot._escape_markdown(f"{entity_id} {friendly_name}\nstate: {state}\n\n")
+        msg = telegrambot._escape_markdown(f"{friendly_name}\nstate: {state}\n\n")
 
         telegrambot._cmd_state_light(user_id)
 
@@ -229,7 +223,7 @@ class TestTelegramBot:
         caplog.set_level(logging.DEBUG)
         user_id = 1
 
-        given_that.passed_arg('filter_exclude_climate').is_set_to("(guest_room|parents_room|kids_room)")
+        given_that.passed_arg('filter_blacklist').is_set_to(['guest_room', 'parents_room', 'kids_room'])
         telegrambot.initialize()
 
         entity_id="climate.living_room"
@@ -237,7 +231,7 @@ class TestTelegramBot:
         state="auto"
         current_temperature=20
         temperature=17
-        msg = telegrambot._escape_markdown(f"{entity_id} {friendly_name}\nstate: {state}\ncurrent temperature: {current_temperature}\ntemperature: {temperature}.\n\n")
+        msg = telegrambot._escape_markdown(f"{friendly_name}\nstate: {state}\ncurrent temperature: {current_temperature}\ntemperature: {temperature}.\n\n")
 
         telegrambot._cmd_state_climate(user_id)
 
@@ -308,21 +302,21 @@ class TestTelegramBot:
         caplog.set_level(logging.DEBUG)
         user_id = 1
 
-        given_that.passed_arg('filter_exclude_cover').is_set_to("(guest_room|parents_room|kids_room)")
+        given_that.passed_arg('filter_blacklist').is_set_to(['guest_room', 'parents_room', 'kids_room'])
         telegrambot.initialize()
 
         entity_id="cover.living_room"
         friendly_name="living_room"
         state="closed"
-        msg = telegrambot._escape_markdown(f"Which cover do you want to open?\n1: Open all covers\n\n2: {entity_id} ({friendly_name})\n\n")
+        msg = telegrambot._escape_markdown(f"Which cover do you want to open?\n\n1: Open all covers\n2: {friendly_name}\n")
 
         keyboard = list()
         keyboardrow = list()
         keyboardrow.append(
-            (1, f"/open_cover?entity_id=all"))
+            (1, f"/clb_open_cover?entity_id=all"))
         hashvalue = telegrambot._get_hash_from_entityid(f"{entity_id}")
         keyboardrow.append(
-            (2, f"/open_cover?entity_id={hashvalue}"))
+            (2, f"/clb_open_cover?entity_id={hashvalue}"))
         keyboard.append(keyboardrow)
         telegrambot._cmd_open_cover(user_id)    
 
@@ -335,21 +329,21 @@ class TestTelegramBot:
         caplog.set_level(logging.DEBUG)
         user_id = 1
 
-        given_that.passed_arg('filter_exclude_cover').is_set_to("(guest_room|parents_room|kids_room)")
+        given_that.passed_arg('filter_blacklist').is_set_to(['guest_room', 'parents_room', 'kids_room'])
         telegrambot.initialize()
 
         entity_id="cover.living_room"
         friendly_name="living_room"
         state="closed"
-        msg = telegrambot._escape_markdown(f"Which cover do you want to close?\n1: Close all covers\n\n2: {entity_id} ({friendly_name})\n\n")
+        msg = telegrambot._escape_markdown(f"Which cover do you want to close?\n\n1: Close all covers\n2: {friendly_name}\n")
 
         keyboard = list()
         keyboardrow = list()
         keyboardrow.append(
-            (1, f"/close_cover?entity_id=all"))
+            (1, f"/clb_close_cover?entity_id=all"))
         hashvalue = telegrambot._get_hash_from_entityid(f"{entity_id}")
         keyboardrow.append(
-            (2, f"/close_cover?entity_id={hashvalue}"))
+            (2, f"/clb_close_cover?entity_id={hashvalue}"))
         keyboard.append(keyboardrow)
         telegrambot._cmd_close_cover(user_id)    
 
@@ -419,21 +413,21 @@ class TestTelegramBot:
         caplog.set_level(logging.DEBUG)
         user_id = 1
 
-        given_that.passed_arg('filter_exclude_light').is_set_to("(guest_room|parents_room|kids_room)")
+        given_that.passed_arg('filter_blacklist').is_set_to(['guest_room', 'parents_room', 'kids_room'])
         telegrambot.initialize()
 
         entity_id="light.living_room"
         friendly_name="living_room"
         state="off"
-        msg = telegrambot._escape_markdown(f"Which light do you want to turn off?\n1: Turn off all lights\n\n2: {entity_id} ({friendly_name})\n\n")
+        msg = telegrambot._escape_markdown(f"Which light do you want to turn off?\n\n1: Turn off all lights\n2: {friendly_name}\n")
 
         keyboard = list()
         keyboardrow = list()
         keyboardrow.append(
-            (1, f"/turnoff_light?entity_id=all"))
+            (1, f"/clb_turnoff_light?entity_id=all"))
         hashvalue = telegrambot._get_hash_from_entityid(f"{entity_id}")
         keyboardrow.append(
-            (2, f"/turnoff_light?entity_id={hashvalue}"))
+            (2, f"/clb_turnoff_light?entity_id={hashvalue}"))
         keyboard.append(keyboardrow)
         telegrambot._cmd_turn_off_light(user_id)    
 
@@ -503,21 +497,21 @@ class TestTelegramBot:
         caplog.set_level(logging.DEBUG)
         user_id = 1
 
-        given_that.passed_arg('filter_exclude_light').is_set_to("(guest_room|parents_room|kids_room)")
+        given_that.passed_arg('filter_blacklist').is_set_to(['guest_room', 'parents_room', 'kids_room'])
         telegrambot.initialize()
 
         entity_id="light.living_room"
         friendly_name="living_room"
         state="off"
-        msg = telegrambot._escape_markdown(f"Which light do you want to turn on?\n1: Turn on all lights\n\n2: {entity_id} ({friendly_name})\n\n")
+        msg = telegrambot._escape_markdown(f"Which light do you want to turn on?\n\n1: Turn on all lights\n2: {friendly_name}\n")
 
         keyboard = list()
         keyboardrow = list()
         keyboardrow.append(
-            (1, f"/turnon_light?entity_id=all"))
+            (1, f"/clb_turnon_light?entity_id=all"))
         hashvalue = telegrambot._get_hash_from_entityid(f"{entity_id}")
         keyboardrow.append(
-            (2, f"/turnon_light?entity_id={hashvalue}"))
+            (2, f"/clb_turnon_light?entity_id={hashvalue}"))
         keyboard.append(keyboardrow)
         telegrambot._cmd_turn_on_light(user_id)    
 
@@ -588,8 +582,8 @@ class TestTelegramBot:
         user_id = 1
 
         msg = "Restart home-assistant?"
-        keyboard = [[("Yes", "/restart_hass?value=yes"), ("No",
-                                                          "/restart_hass?value=no")]]
+        keyboard = [[("Yes", "/clb_restart_hass?value=yes"), ("No",
+                                                          "/clb_restart_hass?value=no")]]
         telegrambot._cmd_restart_hass(user_id)    
 
         assert_that(
@@ -600,7 +594,7 @@ class TestTelegramBot:
         caplog.set_level(logging.DEBUG)
         user_id = 1
 
-        given_that.passed_arg('filter_exclude_vacuum').is_set_to("(guest_room|parents_room|kids_room)")
+        given_that.passed_arg('filter_blacklist').is_set_to(['guest_room', 'parents_room', 'kids_room'])
         telegrambot.initialize()
 
         entity_id="vacuum.living_room"
@@ -608,13 +602,13 @@ class TestTelegramBot:
         state="docked"
         count=1
         battery_level=2.3
-        msg = telegrambot._escape_markdown(f"Which vacuum do you want to start?\n{count}: {entity_id} ({friendly_name})\nstate: {state}\nbattery_level: {battery_level}\n\n")
+        msg = telegrambot._escape_markdown(f"Which vacuum do you want to start?\n\n{count}: {friendly_name}\nstate: {state}\nbattery_level: {battery_level}\n")
 
         keyboard = list()
         keyboardrow = list()
         hashvalue = telegrambot._get_hash_from_entityid(f"{entity_id}")
         keyboardrow.append(
-            (1, f"/start_vacuum?entity_id={hashvalue}"))
+            (1, f"/clb_start_vacuum?entity_id={hashvalue}"))
         keyboard.append(keyboardrow)
         telegrambot._cmd_start_vacuum(user_id)    
 
@@ -663,7 +657,7 @@ class TestTelegramBot:
         caplog.set_level(logging.DEBUG)
         user_id = 1
 
-        given_that.passed_arg('filter_exclude_vacuum').is_set_to("(guest_room|parents_room|kids_room)")
+        given_that.passed_arg('filter_blacklist').is_set_to(['guest_room', 'parents_room', 'kids_room'])
         telegrambot.initialize()
 
         entity_id="vacuum.living_room"
@@ -671,13 +665,13 @@ class TestTelegramBot:
         state="docked"
         count=1
         battery_level=2.3
-        msg = telegrambot._escape_markdown(f"Which vacuum do you want to stop?\n{count}: {entity_id} ({friendly_name})\nstate: {state}\nbattery_level: {battery_level}\n\n")
+        msg = telegrambot._escape_markdown(f"Which vacuum do you want to stop?\n\n{count}: {friendly_name}\nstate: {state}\nbattery_level: {battery_level}\n")
 
         keyboard = list()
         keyboardrow = list()
         hashvalue = telegrambot._get_hash_from_entityid(f"{entity_id}")
         keyboardrow.append(
-            (1, f"/stop_vacuum?entity_id={hashvalue}"))
+            (1, f"/clb_stop_vacuum?entity_id={hashvalue}"))
         keyboard.append(keyboardrow)
         telegrambot._cmd_stop_vacuum(user_id)    
 
@@ -733,7 +727,7 @@ class TestTelegramBot:
         telegrambot._clb_restart_hass(user_id, paramdict)
 
         assert_that(
-            'telegram_bot/send_message').was.called_with(callback_query_id=user_id, message=msg)
+            'telegram_bot/send_message').was.called_with(target=user_id, message=msg)
         
         assert_that(
             'telegram_bot/answer_callback_query').was.called_with(message=msg, callback_query_id=user_id, show_alert=True)
@@ -753,7 +747,7 @@ class TestTelegramBot:
         telegrambot._clb_restart_hass(user_id, paramdict)
 
         assert_that(
-            'telegram_bot/send_message').was.called_with(callback_query_id=user_id, message=msg)
+            'telegram_bot/send_message').was.called_with(target=user_id, message=msg)
         
         assert_that(
             'telegram_bot/answer_callback_query').was.called_with(message=msg, callback_query_id=user_id)
@@ -770,7 +764,7 @@ class TestTelegramBot:
         telegrambot._clb_restart_hass(user_id, paramdict)
 
         assert_that(
-            'telegram_bot/send_message').was.called_with(callback_query_id=user_id, message=msg)
+            'telegram_bot/send_message').was.called_with(target=user_id, message=msg)
 
     @freeze_time("2019-10-16 00:02:02", tz_offset=2)
     def test__get_hash_from_entityid(self, given_that, telegrambot, assert_that, caplog, time_travel):
@@ -828,7 +822,7 @@ class TestTelegramBot:
         caplog.set_level(logging.DEBUG)
         user_id = 1
 
-        given_that.passed_arg('filter_exclude_system').is_set_to("(load_5m|load_15m|network_in|throughput_network_in)")
+        given_that.passed_arg('filter_blacklist').is_set_to(['load_5m', 'load_15m', 'network_in', 'throughput_network_in'])
         telegrambot.initialize()
 
         sensorlist = [ 'load_1m',
