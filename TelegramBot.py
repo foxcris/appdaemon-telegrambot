@@ -5,6 +5,7 @@ import hashlib
 class TelegramBot(BaseClass):
 
     def initialize(self):
+
         self._commanddict = {"/help": {"desc": "Help", "method": self._cmd_help},
                              "/state_cover": {"desc": "State of cover", "method": self._cmd_state_cover},
                              "/state_vacuum": {"desc": "State of vacuum", "method": self._cmd_state_vacuum},
@@ -25,6 +26,8 @@ class TelegramBot(BaseClass):
                              "/turnoff_automation": {"desc": "Turn off automation", "method": self._cmd_turn_off_automation},
                              "/trigger_automation": {"desc": "Trigger automation", "method": self._cmd_trigger_automation},
                              "/state_automation": {"desc": "State of automation", "method": self._cmd_state_automation}}
+        #[...]Data to be sent in a callback query to the bot when button is pressed, 1-64 bytes[...]
+        #https://core.telegram.org/bots/api
         self._callbackdict = {"/clb_restart_hass": {"desc": "Restart hass", "method": self._clb_restart_hass},
                               "/clb_start_vacuum": {"desc": "Start vacuum", "method": self._clb_start_vacuum},
                               "/clb_stop_vacuum": {"desc": "Start vacuum", "method": self._clb_stop_vacuum},
@@ -32,9 +35,9 @@ class TelegramBot(BaseClass):
                               "/clb_close_cover": {"desc": "Close cover", "method": self._clb_close_cover},
                               "/clb_turnoff_light": {"desc": "Turn off light", "method": self._clb_turn_off_light},
                               "/clb_turnon_light": {"desc": "Turn on light", "method": self._clb_turn_on_light},
-                              "/clb_turnoff_automation": {"desc": "Turn off automation", "method": self._clb_turn_off_automation},
-                              "/clb_turnon_automation": {"desc": "Turn on automation", "method": self._clb_turn_on_automation},
-                              "/clb_trigger_automation": {"desc": "Trigger automation", "method": self._clb_trigger_automation}}
+                              "/clb_turnoff_autom": {"desc": "Turn off automation", "method": self._clb_turn_off_autom},
+                              "/clb_turnoff_autom": {"desc": "Turn on automation", "method": self._clb_turn_on_autom},
+                              "/clb_trigger_autom": {"desc": "Trigger automation", "method": self._clb_trigger_autom}}
 
         self.listen_event(self._receive_telegram_command, 'telegram_command')
         self.listen_event(self._receive_telegram_callback, 'telegram_callback')
@@ -700,11 +703,11 @@ class TelegramBot(BaseClass):
                 desc = self._getid(statedict,entity)
                 keyboard_options.append({
                     'description': f"{desc}", 
-                    'url':f"/clb_turnon_automation?entity_id={hashvalue}"})
+                    'url':f"/clb_turnoff_autom?entity_id={hashvalue}"})
         
         self._build_keyboard_answer(keyboard_options, target_id, msg)
 
-    def _clb_turn_on_automation(self, target_id, paramdict):
+    def _clb_turn_on_autom(self, target_id, paramdict):
         hashvalue = paramdict.get("entity_id")
         entity_id = self._get_entityid_from_hash(hashvalue)
         if entity_id is not None:
@@ -737,11 +740,11 @@ class TelegramBot(BaseClass):
                 desc = self._getid(statedict,entity)
                 keyboard_options.append({
                     'description': f"{desc}", 
-                    'url':f"/clb_turnoff_automation?entity_id={hashvalue}"})
+                    'url':f"/clb_turnoff_autom?entity_id={hashvalue}"})
         
         self._build_keyboard_answer(keyboard_options, target_id, msg)
 
-    def _clb_turn_off_automation(self, target_id, paramdict):
+    def _clb_turn_off_autom(self, target_id, paramdict):
         hashvalue = paramdict.get("entity_id")
         entity_id = self._get_entityid_from_hash(hashvalue)
         if entity_id is not None:
@@ -774,11 +777,11 @@ class TelegramBot(BaseClass):
                 desc = self._getid(statedict,entity)
                 keyboard_options.append({
                     'description': f"{desc}", 
-                    'url':f"/clb_trigger_automation?entity_id={hashvalue}"})
+                    'url':f"/clb_trigger_autom?entity_id={hashvalue}"})
         
         self._build_keyboard_answer(keyboard_options, target_id, msg)
 
-    def _clb_trigger_automation(self, target_id, paramdict):
+    def _clb_trigger_autom(self, target_id, paramdict):
         hashvalue = paramdict.get("entity_id")
         entity_id = self._get_entityid_from_hash(hashvalue)
         if entity_id is not None:
@@ -811,6 +814,6 @@ class TelegramBot(BaseClass):
                 last_triggered = statedict.get(entity).get(
                     "attributes").get("last_triggered")
 
-                msg += f"{desc}\nstate: {state}\last_triggered: {last_triggered}\n\n"
+                msg += f"{desc}\nstate: {state}\nlast_triggered: {last_triggered}\n\n"
         self._log_debug(msg)
         self._send_message(msg, target_id)
