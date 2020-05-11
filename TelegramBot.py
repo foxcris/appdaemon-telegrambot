@@ -703,7 +703,7 @@ class TelegramBot(BaseClass):
                 desc = self._getid(statedict,entity)
                 keyboard_options.append({
                     'description': f"{desc}", 
-                    'url':f"/clb_turnoff_autom?entity_id={hashvalue}"})
+                    'url':f"/clb_turnon_autom?entity_id={hashvalue}"})
         
         self._build_keyboard_answer(keyboard_options, target_id, msg)
 
