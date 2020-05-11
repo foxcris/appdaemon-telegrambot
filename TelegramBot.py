@@ -36,7 +36,7 @@ class TelegramBot(BaseClass):
                               "/clb_turnoff_light": {"desc": "Turn off light", "method": self._clb_turn_off_light},
                               "/clb_turnon_light": {"desc": "Turn on light", "method": self._clb_turn_on_light},
                               "/clb_turnoff_autom": {"desc": "Turn off automation", "method": self._clb_turn_off_autom},
-                              "/clb_turnoff_autom": {"desc": "Turn on automation", "method": self._clb_turn_on_autom},
+                              "/clb_turnon_autom": {"desc": "Turn on automation", "method": self._clb_turn_on_autom},
                               "/clb_trigger_autom": {"desc": "Trigger automation", "method": self._clb_trigger_autom}}
 
         self.listen_event(self._receive_telegram_command, 'telegram_command')
@@ -703,7 +703,7 @@ class TelegramBot(BaseClass):
                 desc = self._getid(statedict,entity)
                 keyboard_options.append({
                     'description': f"{desc}", 
-                    'url':f"/clb_turnoff_autom?entity_id={hashvalue}"})
+                    'url':f"/clb_turnon_autom?entity_id={hashvalue}"})
         
         self._build_keyboard_answer(keyboard_options, target_id, msg)
 
