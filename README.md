@@ -20,6 +20,9 @@ Currently the bot provides a simple request/response command interface. The foll
 * /state_system: State of home-assistant
 * /state_sensor: State of sensors
 * /get_version: Get version of telegrambot
+* /turnon_automation: Turn on automation
+* /turnoff_automation: Turn off automation
+* /trigger_automation: Trigger automation
 
 ## Configuration
 ### appdaemon configuration

@@ -20,14 +20,20 @@ class TelegramBot(BaseClass):
                              "/restart_hass": {"desc": "Restart hass", "method": self._cmd_restart_hass},
                              "/state_system": {"desc": "State of home-assistant", "method": self._cmd_state_system},
                              "/state_sensor": {"desc": "State of sensors", "method": self._cmd_state_sensor},
-                             "/get_version": {"desc": "Get version of telegrambot", "method": self._cmd_get_version}}
+                             "/get_version": {"desc": "Get version of telegrambot", "method": self._cmd_get_version},
+                             "/turnon_automation": {"desc": "Turn on automation", "method": self._cmd_turn_on_automation},
+                             "/turnoff_automation": {"desc": "Turn off automation", "method": self._cmd_turn_off_automation},
+                             "/trigger_automation": {"desc": "Trigger automation", "method": self._cmd_trigger_automation}}
         self._callbackdict = {"/clb_restart_hass": {"desc": "Restart hass", "method": self._clb_restart_hass},
                               "/clb_start_vacuum": {"desc": "Start vacuum", "method": self._clb_start_vacuum},
                               "/clb_stop_vacuum": {"desc": "Start vacuum", "method": self._clb_stop_vacuum},
                               "/clb_open_cover": {"desc": "Open cover", "method": self._clb_open_cover},
                               "/clb_close_cover": {"desc": "Close cover", "method": self._clb_close_cover},
                               "/clb_turnoff_light": {"desc": "Turn off light", "method": self._clb_turn_off_light},
-                              "/clb_turnon_light": {"desc": "Turn on light", "method": self._clb_turn_on_light}}
+                              "/clb_turnon_light": {"desc": "Turn on light", "method": self._clb_turn_on_light},
+                              "/clb_turnoff_automation": {"desc": "Turn off automation", "method": self._clb_turn_off_automation},
+                              "/clb_turnon_automation": {"desc": "Turn on automation", "method": self._clb_turn_on_automation},
+                              "/clb_trigger_automation": {"desc": "Trigger automation", "method": self._clb_trigger_automation}}
 
         self.listen_event(self._receive_telegram_command, 'telegram_command')
         self.listen_event(self._receive_telegram_callback, 'telegram_callback')
@@ -681,3 +687,114 @@ class TelegramBot(BaseClass):
                 filtered_statedict.update({entity: statedict.get(entity)})
             
         return filtered_statedict
+
+    def _cmd_turn_on_automation(self, target_id):
+        msg = "Which automation do you want to turn on?\n\n"
+        statedict = self._get_state_filtered()
+        keyboard_options=list()
+        for entity in statedict:
+            if re.match('^automation.*', entity, re.IGNORECASE):
+                self._log_debug(statedict.get(entity))
+                hashvalue = self._get_hash_from_entityid(entity)
+                desc = self._getid(statedict,entity)
+                keyboard_options.append({
+                    'description': f"{desc}", 
+                    'url':f"/clb_turnon_automation?entity_id={hashvalue}"})
+        
+        self._build_keyboard_answer(keyboard_options, target_id, msg)
+
+    def _clb_turn_on_automation(self, target_id, paramdict):
+        hashvalue = paramdict.get("entity_id")
+        entity_id = self._get_entityid_from_hash(hashvalue)
+        if entity_id is not None:
+            friendly_name = self.get_state(entity_id, attribute="friendly_name")
+            msg=f"Turn on automation {entity_id} ({friendly_name})"
+            self._send_message(msg, target_id)
+            self.call_service(
+                'telegram_bot/answer_callback_query',
+                message=self._escape_markdown(msg),
+                callback_query_id=target_id)
+            self.call_service("automation/turn_on",
+                              entity_id=entity_id)
+        else:
+            msg = "Unkown entity. Please do not resent old commands!"
+            self._send_message(msg, target_id)
+            self.call_service(
+                'telegram_bot/answer_callback_query',
+                message=self._escape_markdown(msg),
+                callback_query_id=target_id,
+                show_alert=True)
+
+    def _cmd_turn_off_automation(self, target_id):
+        msg = "Which automation do you want to turn off?\n\n"
+        statedict = self._get_state_filtered()
+        keyboard_options=list()
+        for entity in statedict:
+            if re.match('^automation.*', entity, re.IGNORECASE):
+                self._log_debug(statedict.get(entity))
+                hashvalue = self._get_hash_from_entityid(entity)
+                desc = self._getid(statedict,entity)
+                keyboard_options.append({
+                    'description': f"{desc}", 
+                    'url':f"/clb_turnoff_automation?entity_id={hashvalue}"})
+        
+        self._build_keyboard_answer(keyboard_options, target_id, msg)
+
+    def _clb_turn_off_automation(self, target_id, paramdict):
+        hashvalue = paramdict.get("entity_id")
+        entity_id = self._get_entityid_from_hash(hashvalue)
+        if entity_id is not None:
+            friendly_name = self.get_state(entity_id, attribute="friendly_name")
+            msg=f"Turn off automation {entity_id} ({friendly_name})"
+            self._send_message(msg, target_id)
+            self.call_service(
+                'telegram_bot/answer_callback_query',
+                message=self._escape_markdown(msg),
+                callback_query_id=target_id)
+            self.call_service("automation/turn_off",
+                              entity_id=entity_id)
+        else:
+            msg = "Unkown entity. Please do not resent old commands!"
+            self._send_message(msg, target_id)
+            self.call_service(
+                'telegram_bot/answer_callback_query',
+                message=self._escape_markdown(msg),
+                callback_query_id=target_id,
+                show_alert=True)
+
+    def _cmd_trigger_automation(self, target_id):
+        msg = "Which automation do you want to trigger?\n\n"
+        statedict = self._get_state_filtered()
+        keyboard_options=list()
+        for entity in statedict:
+            if re.match('^automation.*', entity, re.IGNORECASE):
+                self._log_debug(statedict.get(entity))
+                hashvalue = self._get_hash_from_entityid(entity)
+                desc = self._getid(statedict,entity)
+                keyboard_options.append({
+                    'description': f"{desc}", 
+                    'url':f"/clb_trigger_automation?entity_id={hashvalue}"})
+        
+        self._build_keyboard_answer(keyboard_options, target_id, msg)
+
+    def _clb_trigger_automation(self, target_id, paramdict):
+        hashvalue = paramdict.get("entity_id")
+        entity_id = self._get_entityid_from_hash(hashvalue)
+        if entity_id is not None:
+            friendly_name = self.get_state(entity_id, attribute="friendly_name")
+            msg=f"Trigger automation {entity_id} ({friendly_name})"
+            self._send_message(msg, target_id)
+            self.call_service(
+                'telegram_bot/answer_callback_query',
+                message=self._escape_markdown(msg),
+                callback_query_id=target_id)
+            self.call_service("automation/trigger",
+                              entity_id=entity_id)
+        else:
+            msg = "Unkown entity. Please do not resent old commands!"
+            self._send_message(msg, target_id)
+            self.call_service(
+                'telegram_bot/answer_callback_query',
+                message=self._escape_markdown(msg),
+                callback_query_id=target_id,
+                show_alert=True)
