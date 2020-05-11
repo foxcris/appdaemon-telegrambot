@@ -23,6 +23,7 @@ Currently the bot provides a simple request/response command interface. The foll
 * /turnon_automation: Turn on automation
 * /turnoff_automation: Turn off automation
 * /trigger_automation: Trigger automation
+* /state_automation: State of automation
 
 ## Configuration
 ### appdaemon configuration

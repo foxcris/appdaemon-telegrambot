@@ -23,7 +23,8 @@ class TelegramBot(BaseClass):
                              "/get_version": {"desc": "Get version of telegrambot", "method": self._cmd_get_version},
                              "/turnon_automation": {"desc": "Turn on automation", "method": self._cmd_turn_on_automation},
                              "/turnoff_automation": {"desc": "Turn off automation", "method": self._cmd_turn_off_automation},
-                             "/trigger_automation": {"desc": "Trigger automation", "method": self._cmd_trigger_automation}}
+                             "/trigger_automation": {"desc": "Trigger automation", "method": self._cmd_trigger_automation},
+                             "/state_automation": {"desc": "State of automation", "method": self._cmd_state_automation}}
         self._callbackdict = {"/clb_restart_hass": {"desc": "Restart hass", "method": self._clb_restart_hass},
                               "/clb_start_vacuum": {"desc": "Start vacuum", "method": self._clb_start_vacuum},
                               "/clb_stop_vacuum": {"desc": "Start vacuum", "method": self._clb_stop_vacuum},
@@ -593,7 +594,7 @@ class TelegramBot(BaseClass):
         self._send_message(msg, target_id)
 
     def _build_keyboard_answer(self, items, target_id, msgprefix=None, msgsuffix=None, keyboard_width=8):
-        """ items: list of dictionaries in the form [{'description':'', 'url':''}]
+        """ items: list of dictionaries in the form [{'description':'', 'url':'', 'botton': ''}]
         """
         keyboard = list()
         keyboardrow = list()
@@ -798,3 +799,18 @@ class TelegramBot(BaseClass):
                 message=self._escape_markdown(msg),
                 callback_query_id=target_id,
                 show_alert=True)
+
+    def _cmd_state_automation(self, target_id):
+        statedict = self._get_state_filtered()
+        msg = ""
+        for entity in statedict:
+            if re.match('^automation.*', entity, re.IGNORECASE):
+                self._log_debug(statedict.get(entity))
+                state = statedict.get(entity).get("state")
+                desc = self._getid(statedict, entity)
+                last_triggered = statedict.get(entity).get(
+                    "attributes").get("last_triggered")
+
+                msg += f"{desc}\nstate: {state}\last_triggered: {last_triggered}\n\n"
+        self._log_debug(msg)
+        self._send_message(msg, target_id)
