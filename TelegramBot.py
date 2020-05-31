@@ -1,6 +1,7 @@
 from Helper import BaseClass
 import re
 import hashlib
+import ast
 
 class TelegramBot(BaseClass):
 
@@ -41,6 +42,7 @@ class TelegramBot(BaseClass):
 
         self.listen_event(self._receive_telegram_command, 'telegram_command')
         self.listen_event(self._receive_telegram_callback, 'telegram_callback')
+        self.listen_event(self._receive_telegram_text, 'telegram_text')
         self.listen_state(
             self._homeassistant_update_available,
             "binary_sensor.updater", duration=1)
@@ -56,16 +58,21 @@ class TelegramBot(BaseClass):
         self._extend_system = None
         if self.args["extend_system"] is not None and self.args["extend_system"]!="":
             self._extend_system=self.args["extend_system"].split(',')
+        self._log_debug(f"extend_system: {self._extend_system}")
 
         self._filter_blacklist = None
         if self.args.get("filter_blacklist", None) is not None and self.args.get("filter_blacklist")!="":
             self._filter_blacklist=self.args.get("filter_blacklist")
         self._log_debug(self._filter_blacklist)
+        self._log_debug(f"filter_blacklist: {self._filter_blacklist}")
         
         self._filter_whitelist = None
         if self.args.get("filter_whitelist", None) is not None and self.args.get("filter_whitelist")!="":
             self._filter_whitelist=self.args.get("filter_whitelist")
-        self._log_debug(self._filter_whitelist)
+        self._log_debug(f"filter_whitelist: {self._filter_whitelist}")
+
+        self._routing = self.args.get("routing", None)
+        self._log_debug(f"routing: {self._routing}")
 
 
     def _receive_telegram_command(self, event_id, payload_event, *args):
@@ -85,6 +92,21 @@ class TelegramBot(BaseClass):
                 'telegram_bot/send_message',
                 target=user_id,
                 message=self._escape_markdown(msg))
+    
+    def _receive_telegram_text(self, event_id, payload_event, *args):
+        user_id = payload_event['user_id']
+        chat_id = payload_event['chat_id']
+        text = ast.literal_eval(payload_event.get('text'))
+
+        self._log_debug(f"Telegram Command: user_id: {user_id}, chat_id: {chat_id}, text: {text}")
+        self._log_debug(f"Paylod_event: {payload_event}")
+
+        #check if location was sent
+        if isinstance(text, dict) and text.get('location',None) is not None:
+            location = text.get('location',dict())
+            longitude = location.get('longitude',None)
+            latitude = location.get('latitude',None)
+            self._compute_travel_time(user_id, longitude, latitude)
 
     def _escape_markdown(self, msg):
         msg = msg.replace("`", "\\`")
@@ -817,3 +839,27 @@ class TelegramBot(BaseClass):
                 msg += f"{desc}\nstate: {state}\nlast_triggered: {last_triggered}\n\n"
         self._log_debug(msg)
         self._send_message(msg, target_id)
+
+    def _compute_travel_time(self, user_id, longitude,latitude):
+        WazeRouteCalculator = self.import_install_module('WazeRouteCalculator')
+        region = 'EU'
+        avoid_toll_roads = False
+        if self._routing is not None:
+            #check which backend is configured
+            #here = self._routing.get('here',None)
+            waze = self._routing.get('waze',None)
+            if waze is not None:
+                region = waze.get('region', 'EU')
+                avoid_toll_roads = waze.get('avoid_toll_roads', False)
+        statedict = self.get_state('zone')
+        for entity in statedict:
+            zone = statedict.get(entity)
+            self._log_debug(zone)
+            zone_latitude=self.get_state(entity, attribute='latitude')
+            zone_longitude=self.get_state(entity, attribute='longitude')
+            desc=self._getid(statedict, entity)
+            #self._log_debug(rlist)
+            wazeroute = WazeRouteCalculator.WazeRouteCalculator(f"{latitude},{longitude}", f"{zone_latitude},{zone_longitude}", region, avoid_toll_roads)
+            route_time, route_distance = wazeroute.calc_route_info()
+            msg = f"Route to '{desc}'\nRequired Time: {route_time:.2f} minutes\nDistance: {route_distance:.2f} km"
+            self._send_message(msg, user_id)

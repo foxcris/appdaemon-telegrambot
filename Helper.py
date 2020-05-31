@@ -72,3 +72,20 @@ class BaseClass(hass.Hass):
                 if state == "home":
                     anyonehome = True
         return anyonehome
+
+    def import_install_module(self, package):
+        import subprocess
+        import sys
+        import importlib
+        importedmodule = None
+        try:
+            importedmodule = importlib.import_module(package)
+        except ImportError:
+            self._log_debug(sys.executable)
+            try:
+                subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+            except Exception as e:
+                self._log_error(e)
+        finally:
+            importedmodule = importlib.import_module(package)
+        return importedmodule
