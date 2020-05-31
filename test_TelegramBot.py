@@ -879,7 +879,7 @@ class TestTelegramBot:
         keyboardrow = list()
         hashvalue = telegrambot._get_hash_from_entityid(f"{entity_id}")
         keyboardrow.append(
-            (1, f"/clb_turnon_automation?entity_id={hashvalue}"))
+            (1, f"/clb_turnon_autom?entity_id={hashvalue}"))
         keyboard.append(keyboardrow)
         telegrambot._cmd_turn_on_automation(user_id)    
 
@@ -898,7 +898,7 @@ class TestTelegramBot:
 
         msg = telegrambot._escape_markdown(f"Turn on automation {entity_id} ({friendly_name})")
 
-        telegrambot._clb_turn_on_automation(user_id, paramdict)
+        telegrambot._clb_turn_on_autom(user_id, paramdict)
 
         assert_that(
             'telegram_bot/send_message').was.called_with(target=user_id, message=msg)
@@ -917,7 +917,7 @@ class TestTelegramBot:
         paramdict = dict()
         paramdict.update({"entity_id": "unkown"})
         msg = telegrambot._escape_markdown(f"Unkown entity. Please do not resent old commands!")
-        telegrambot._clb_turn_on_automation(user_id, paramdict)
+        telegrambot._clb_turn_on_autom(user_id, paramdict)
 
         assert_that(
             'telegram_bot/send_message').was.called_with(target=user_id, message=msg) 
@@ -939,7 +939,7 @@ class TestTelegramBot:
         keyboardrow = list()
         hashvalue = telegrambot._get_hash_from_entityid(f"{entity_id}")
         keyboardrow.append(
-            (1, f"/clb_turnoff_automation?entity_id={hashvalue}"))
+            (1, f"/clb_turnoff_autom?entity_id={hashvalue}"))
         keyboard.append(keyboardrow)
         telegrambot._cmd_turn_off_automation(user_id)    
 
@@ -958,7 +958,7 @@ class TestTelegramBot:
 
         msg = telegrambot._escape_markdown(f"Turn off automation {entity_id} ({friendly_name})")
 
-        telegrambot._clb_turn_off_automation(user_id, paramdict)
+        telegrambot._clb_turn_off_autom(user_id, paramdict)
 
         assert_that(
             'telegram_bot/send_message').was.called_with(target=user_id, message=msg)
@@ -977,7 +977,7 @@ class TestTelegramBot:
         paramdict = dict()
         paramdict.update({"entity_id": "unkown"})
         msg = telegrambot._escape_markdown(f"Unkown entity. Please do not resent old commands!")
-        telegrambot._clb_turn_off_automation(user_id, paramdict)
+        telegrambot._clb_turn_off_autom(user_id, paramdict)
 
         assert_that(
             'telegram_bot/send_message').was.called_with(target=user_id, message=msg)
@@ -999,7 +999,7 @@ class TestTelegramBot:
         keyboardrow = list()
         hashvalue = telegrambot._get_hash_from_entityid(f"{entity_id}")
         keyboardrow.append(
-            (1, f"/clb_trigger_automation?entity_id={hashvalue}"))
+            (1, f"/clb_trigger_autom?entity_id={hashvalue}"))
         keyboard.append(keyboardrow)
         telegrambot._cmd_trigger_automation(user_id)    
 
@@ -1018,7 +1018,7 @@ class TestTelegramBot:
 
         msg = telegrambot._escape_markdown(f"Trigger automation {entity_id} ({friendly_name})")
 
-        telegrambot._clb_trigger_automation(user_id, paramdict)
+        telegrambot._clb_trigger_autom(user_id, paramdict)
 
         assert_that(
             'telegram_bot/send_message').was.called_with(target=user_id, message=msg)
@@ -1037,7 +1037,7 @@ class TestTelegramBot:
         paramdict = dict()
         paramdict.update({"entity_id": "unkown"})
         msg = telegrambot._escape_markdown(f"Unkown entity. Please do not resent old commands!")
-        telegrambot._clb_trigger_automation(user_id, paramdict)
+        telegrambot._clb_trigger_autom(user_id, paramdict)
 
         assert_that(
             'telegram_bot/send_message').was.called_with(target=user_id, message=msg)
