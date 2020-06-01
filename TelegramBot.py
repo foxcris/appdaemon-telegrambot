@@ -852,6 +852,7 @@ class TelegramBot(BaseClass):
                 region = waze.get('region', 'EU')
                 avoid_toll_roads = waze.get('avoid_toll_roads', False)
         statedict = self.get_state('zone')
+        self._log_debug(statedict)
         for entity in statedict:
             zone = statedict.get(entity)
             self._log_debug(zone)
@@ -859,7 +860,20 @@ class TelegramBot(BaseClass):
             zone_longitude=self.get_state(entity, attribute='longitude')
             desc=self._getid(statedict, entity)
             #self._log_debug(rlist)
-            wazeroute = WazeRouteCalculator.WazeRouteCalculator(f"{latitude},{longitude}", f"{zone_latitude},{zone_longitude}", region, avoid_toll_roads)
-            route_time, route_distance = wazeroute.calc_route_info()
-            msg = f"Route to '{desc}'\nRequired Time: {route_time:.2f} minutes\nDistance: {route_distance:.2f} km"
-            self._send_message(msg, user_id)
+            retry=0
+            maxretry=5
+            while retry<maxretry:
+                try:
+                    wazeroute = WazeRouteCalculator.WazeRouteCalculator(f"{latitude},{longitude}", f"{zone_latitude},{zone_longitude}", region, avoid_toll_roads)
+                    route_time, route_distance = wazeroute.calc_route_info()
+                    msg = f"Route to '{desc}'\nRequired Time: {route_time:.2f} minutes\nDistance: {route_distance:.2f} km"
+                    self._log_debug(msg)
+                    self._send_message(msg, user_id)
+                    retry=maxretry
+                except Exception as e:
+                    self._log_error(e)
+                    retry+=1
+                    if retry==maxretry:
+                        self._log_error(f"Compute route to {desc} failed. Max retry reached.")
+                    else:
+                        self._log_error(f"Compute route to {desc} failed. Retry {retry} of {maxretry}.")
