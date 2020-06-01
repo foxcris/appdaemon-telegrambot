@@ -24,6 +24,7 @@ Currently the bot provides a simple request/response command interface. The foll
 * /turnoff_automation: Turn off automation
 * /trigger_automation: Trigger automation
 * /state_automation: State of automation
+* send location message from telegram: for each defined zone in home-assistant the travel time from the current location sent is computed
 
 ## Configuration
 ### appdaemon configuration
