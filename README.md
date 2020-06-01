@@ -44,6 +44,10 @@ TelegramBot:
     - load_5m
   filter_whitelist:
     - sample
+  routing:
+    waze:
+      region:               EU
+      avoid_toll_roads:     True
   ```
 
 extend_system: comma separated list of complete entities to include in the system report
@@ -53,6 +57,8 @@ The following logic is used to apply the blacklist and whitelist:
 * If the blacklist is empty - nothing is filtered out
 * If the whitelist is empty - nothing is filtered out
 * If both the blacklist and whitelist are non-empty, first the blacklist ist applied and then the whitelist
+
+routing: currently only waze is supported. region can be 'US','EU','IL','AU' and is used to select the correct routingserver from waze. avoid_toll_roads is a boolean to enable/disable the use of toll roads in the travel time computation.
 
 The file Helper.py is also used by one of my [other](https://github.com/foxcris/appdaemon-blinds-control) appdaemon project. In both projects the same file is used!
 
