@@ -44,6 +44,11 @@ class TestTelegramBot:
             given_that.state_of(f"person.{person}").is_set_to(
                 "home", {'friendly_name': f"{person}", 'latitude' : 52.5097612943, 'longitude': 13.3732985068, 'gps_accuracy': 20})
 
+        zonelist = ['home', 'work']
+        for zone in zonelist:
+            given_that.state_of(f"zone.{zone}").is_set_to(
+                "zoning", {'friendly_name': f"{zone}", 'latitude' : 52.3942, 'longitude': 13.0727, 'radius': 100})
+
         sensorlist = [ 'load_1m',
                         'load_5m',
                         'load_15m',
@@ -1041,3 +1046,35 @@ class TestTelegramBot:
 
         assert_that(
             'telegram_bot/send_message').was.called_with(target=user_id, message=msg)
+
+
+    @freeze_time("2019-10-16 00:02:02", tz_offset=2)
+    def test__receive_telegram_text(self, given_that, telegrambot, assert_that, caplog, time_travel):
+        caplog.set_level(logging.DEBUG)
+        user_id = 1
+        chat_id = 1
+        text = """{'message_id': 1234, 'date': 1591002810, 'chat': {'id': 123456789, 'type': 'private', 'username': 'foxcris', 'first_name': 'firstname', 'last_name': 'lastname'}, 'entities': [], 'caption_entities': [], 'photo': [], 'location': {'longitude': 13.3732985068, 'latitude': 52.5097612943}, 'new_chat_members': [], 'new_chat_photo': [], 'delete_chat_photo': False, 'group_chat_created': False, 'supergroup_chat_created': False, 'channel_chat_created': False, 'from': {'id': 123456789, 'first_name': 'firstname', 'is_bot': False, 'last_name': 'lastname', 'username': 'foxcris', 'language_code': 'de'}}"""
+        payload_event = dict()
+        payload_event.update({"user_id": user_id})
+        payload_event.update({"chat_id": chat_id})
+        payload_event.update({"text": text})
+
+        telegrambot._compute_travel_time = mock.MagicMock()
+
+        telegrambot._receive_telegram_text(None, payload_event)
+        
+        telegrambot._compute_travel_time.assert_called()
+
+
+    @freeze_time("2019-10-16 00:02:02", tz_offset=2)
+    def test__compute_travel_time(self, given_that, telegrambot, assert_that, caplog, time_travel):
+        caplog.set_level(logging.DEBUG)
+        user_id = 1
+
+        given_that.passed_arg('routing').is_set_to({'waze' : {'region': 'EU', 'avoid_toll_roads': False}})
+        telegrambot.initialize()
+
+        telegrambot._compute_travel_time(user_id, 13.3732985068, 52.5097612943)
+        
+        assert_that(
+            'telegram_bot/send_message').was.called_with(target=user_id, message=ANY)
