@@ -2,6 +2,7 @@ from Helper import BaseClass
 import re
 import hashlib
 import ast
+from datetime import datetime
 
 class TelegramBot(BaseClass):
 
@@ -26,7 +27,9 @@ class TelegramBot(BaseClass):
                              "/turnon_automation": {"desc": "Turn on automation", "method": self._cmd_turn_on_automation},
                              "/turnoff_automation": {"desc": "Turn off automation", "method": self._cmd_turn_off_automation},
                              "/trigger_automation": {"desc": "Trigger automation", "method": self._cmd_trigger_automation},
-                             "/state_automation": {"desc": "State of automation", "method": self._cmd_state_automation}}
+                             "/state_automation": {"desc": "State of automation", "method": self._cmd_state_automation},
+                             "/get_log": {"desc": "Get last lines of the home-assistant log", "method": self._cmd_get_log},
+                             "/get_error_log": {"desc": "Get home-assistant error log", "method": self._cmd_get_error_log}}
         #[...]Data to be sent in a callback query to the bot when button is pressed, 1-64 bytes[...]
         #https://core.telegram.org/bots/api
         self._callbackdict = {"/clb_restart_hass": {"desc": "Restart hass", "method": self._clb_restart_hass},
@@ -73,6 +76,9 @@ class TelegramBot(BaseClass):
 
         self._routing = self.args.get("routing", None)
         self._log_debug(f"routing: {self._routing}")
+
+        self._hass = self.args.get("hass", None)
+        self._log_debug(f"hass: {self._hass}")
 
 
     def _receive_telegram_command(self, event_id, payload_event, *args):
@@ -125,7 +131,7 @@ class TelegramBot(BaseClass):
             keyboard_options.append({
                 'description': desc, 
                 'url': command,
-                'button': command})
+                'button': button})
         self._log_debug(msg)
         self._build_keyboard_answer(keyboard_options, target_id, keyboard_width=2)
 
@@ -877,3 +883,39 @@ class TelegramBot(BaseClass):
                             self._log_error(f"Compute route to {desc} failed. Max retry reached.")
                         else:
                             self._log_error(f"Compute route to {desc} failed. Retry {retry} of {maxretry}.")
+
+    def _cmd_get_log(self, target_id):
+        #curl -X GET -H "Authorization: Bearer ABCDEFGH" \
+        #-H "Content-Type: application/json" \
+        #http://localhost:8123/api/error_log
+        if self._hass is not None:
+            token = self._hass.get('token', None)
+            ha_url = self._hass.get('ha_url', None)
+            if token is not None and ha_url is not None:
+                requests = self.import_install_module('requests')
+                custom_headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+                res=requests.get(f"{ha_url}/api/error_log", headers=custom_headers)
+                loglist=res.text.split('\n')
+                lastlogs=loglist[-50:]
+                self._send_message('\n'.join(lastlogs), target_id)
+
+    def _cmd_get_error_log(self, target_id):
+        #curl -X GET -H "Authorization: Bearer ABCDEFGH" \
+        #-H "Content-Type: application/json" \
+        #http://localhost:8123/api/error_log
+        if self._hass is not None:
+            token = self._hass.get('token', None)
+            ha_url = self._hass.get('ha_url', None)
+            if token is not None and ha_url is not None:
+                requests = self.import_install_module('requests')
+                custom_headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+                res=requests.get(f"{ha_url}/api/error/all", headers=custom_headers)
+                msg = ''
+                for entry in res.json():
+                    timestamp = entry.get('timestamp',None)
+                    if timestamp is not None:
+                        timestamp = datetime.fromtimestamp(timestamp)
+                    errorlevel = entry.get('level',None)
+                    message = entry.get('message',None)
+                    msg += f"{timestamp} {errorlevel} {message}\n"
+                self._send_message(msg, target_id)
