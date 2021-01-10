@@ -599,7 +599,7 @@ class TelegramBot(BaseClass):
         
         statedict = self._get_state_filtered()
         for entity in statedict:
-            if re.match(f"^binary_sensor|^sensor.({'|'.join(sensorlist)}).*", entity, re.IGNORECASE):
+            if re.match(f"^sensor.({'|'.join(sensorlist)}).*", entity, re.IGNORECASE):
                 state = self.get_state(entity)
                 desc = self._getid(statedict,entity)
                 unit_of_measurement=self.get_state(entity, attribute='unit_of_measurement')
