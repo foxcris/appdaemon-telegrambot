@@ -193,7 +193,7 @@ class TelegramBot(BaseClass):
         statedict = self._get_state_filtered()
         msg=""
         for entity in statedict:
-            if re.match('^switch.on_off_plug_in_unit|^light.*', entity, re.IGNORECASE):
+            if re.match('^switch.on_off_plug_in_unit*|^light.*', entity, re.IGNORECASE):
                 self._log_debug(statedict.get(entity))
                 state = statedict.get(entity).get("state")
                 desc = self._getid(statedict,entity)
