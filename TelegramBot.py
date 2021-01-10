@@ -312,7 +312,7 @@ class TelegramBot(BaseClass):
                     'description': f"Turn off all lights", 
                     'url':f"/clb_turnoff_light?entity_id=all"})
         for entity in statedict:
-            if re.match('^switch.on_off_plug_in_unit|^light.*', entity, re.IGNORECASE):
+            if re.match('^switch.on_off_plug_in_unit*|^light.*', entity, re.IGNORECASE):
                 self._log_debug(statedict.get(entity))
                 hashvalue = self._get_hash_from_entityid(entity)
                 desc = self._getid(statedict,entity)
