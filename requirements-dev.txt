@@ -1,4 +1,4 @@
-aiohttp==3.6.2
+aiohttp==3.7.4
 aiohttp-jinja2==0.15.0
 appdaemon==4.0.3
 appdaemontestframework==3.0.5
