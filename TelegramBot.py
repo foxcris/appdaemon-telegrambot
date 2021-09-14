@@ -361,8 +361,8 @@ class TelegramBot(BaseClass):
                 'telegram_bot/answer_callback_query',
                 message=self._escape_markdown(msg),
                 callback_query_id=target_id)
-            self.call_service("light/turn_off",
-                              entity_id=entity_id)
+            self._turn_off(entity_id)
+
         else:
             msg = "Unkown entity. Please do not resent old commands!"
             self._send_message(msg, target_id)
@@ -412,8 +412,7 @@ class TelegramBot(BaseClass):
                 'telegram_bot/answer_callback_query',
                 message=self._escape_markdown(msg),
                 callback_query_id=target_id)
-            self.call_service("light/turn_on",
-                              entity_id=entity_id)
+            self._turn_on(entity_id)
         else:
             msg = "Unkown entity. Please do not resent old commands!"
             self._send_message(msg, target_id)
@@ -774,8 +773,7 @@ class TelegramBot(BaseClass):
                 'telegram_bot/answer_callback_query',
                 message=self._escape_markdown(msg),
                 callback_query_id=target_id)
-            self.call_service("automation/turn_on",
-                              entity_id=entity_id)
+            self._turn_on(entity_id)
         else:
             msg = "Unkown entity. Please do not resent old commands!"
             self._send_message(msg, target_id)
@@ -811,8 +809,7 @@ class TelegramBot(BaseClass):
                 'telegram_bot/answer_callback_query',
                 message=self._escape_markdown(msg),
                 callback_query_id=target_id)
-            self.call_service("automation/turn_off",
-                              entity_id=entity_id)
+            self._turn_off(entity_id)
         else:
             msg = "Unkown entity. Please do not resent old commands!"
             self._send_message(msg, target_id)
@@ -947,3 +944,51 @@ class TelegramBot(BaseClass):
                     message = entry.get('message',None)
                     msg += f"{timestamp} {errorlevel} {message}\n"
                 self._send_message(msg, target_id)
+                
+    def _turn_on(self, entity_id):
+        if re.match('^light.*', entity_id, re.IGNORECASE)
+            self.call_service("light/turn_on", entity_id=entity_id)
+        elif re.match('^automation.*', entity_id, re.IGNORECASE):
+            self.call_service("automation/turn_on", entity_id=entity_id)
+        elif re.match('^climate.*', entity_id, re.IGNORECASE):
+            self.call_service("climate/turn_on", entity_id=entity_id)
+        elif re.match('^fan.*', entity_id, re.IGNORECASE):
+            self.call_service("fan/turn_on", entity_id=entity_id)
+        elif re.match('^input_boolean.*', entity_id, re.IGNORECASE):
+            self.call_service("input_boolean/turn_on", entity_id=entity_id)
+        elif re.match('^media_player.*', entity_id, re.IGNORECASE):
+            self.call_service("media_player/turn_on", entity_id=entity_id)
+        elif re.match('^scene.*', entity_id, re.IGNORECASE):
+            self.call_service("scene/turn_on", entity_id=entity_id)
+        elif re.match('^script.*', entity_id, re.IGNORECASE):
+            self.call_service("script/turn_on", entity_id=entity_id)
+        elif re.match('^switch.*', entity_id, re.IGNORECASE):
+            self.call_service("switch/turn_on", entity_id=entity_id)
+        elif re.match('^vacuum.*', entity_id, re.IGNORECASE):
+            self.call_service("vacuum/turn_on", entity_id=entity_id)
+        else:
+            self._log_error("Unsupported entity type for command turn_on")
+        
+    def _turn_off(self, entity_id):
+        if re.match('^light.*', entity_id, re.IGNORECASE)
+            self.call_service("light/turn_off", entity_id=entity_id)
+        elif re.match('^automation.*', entity_id, re.IGNORECASE):
+            self.call_service("automation/turn_off", entity_id=entity_id)
+        elif re.match('^climate.*', entity_id, re.IGNORECASE):
+            self.call_service("climate/turn_off", entity_id=entity_id)
+        elif re.match('^fan.*', entity_id, re.IGNORECASE):
+            self.call_service("fan/turn_off", entity_id=entity_id)
+        elif re.match('^input_boolean.*', entity_id, re.IGNORECASE):
+            self.call_service("input_boolean/turn_off", entity_id=entity_id)
+        elif re.match('^media_player.*', entity_id, re.IGNORECASE):
+            self.call_service("media_player/turn_off", entity_id=entity_id)
+        elif re.match('^scene.*', entity_id, re.IGNORECASE):
+            self.call_service("scene/turn_off", entity_id=entity_id)
+        elif re.match('^script.*', entity_id, re.IGNORECASE):
+            self.call_service("script/turn_off", entity_id=entity_id)
+        elif re.match('^switch.*', entity_id, re.IGNORECASE):
+            self.call_service("switch/turn_off", entity_id=entity_id)
+        elif re.match('^vacuum.*', entity_id, re.IGNORECASE):
+            self.call_service("vacuum/turn_off", entity_id=entity_id)
+        else:
+            self._log_error("Unsupported entity type for command turn_off")

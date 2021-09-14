@@ -39,8 +39,7 @@ TelegramBot:
   class:                    TelegramBot
   debug:                    True
   extend_system:            sensor.date,sensor.heartbeat
-  extend_light:             binary.custom_light
-  filter_blacklist:     
+  extend_light:             switch.light
     - load_1m
     - load_5m
   filter_whitelist:
