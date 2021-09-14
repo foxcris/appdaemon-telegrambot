@@ -63,6 +63,11 @@ class TelegramBot(BaseClass):
             self._extend_system=self.args["extend_system"].split(',')
         self._log_debug(f"extend_system: {self._extend_system}")
 
+        self._extend_light = None
+        if self.args["extend_light"] is not None and self.args["extend_light"]!="":
+            self._extend_light=self.args["extend_light"].split(',')
+        self._log_debug(f"_extend_light: {self._extend_light}")
+
         self._filter_blacklist = None
         if self.args.get("filter_blacklist", None) is not None and self.args.get("filter_blacklist")!="":
             self._filter_blacklist=self.args.get("filter_blacklist")
@@ -198,6 +203,13 @@ class TelegramBot(BaseClass):
                 state = statedict.get(entity).get("state")
                 desc = self._getid(statedict,entity)
                 msg += f"{desc}\nstate: {state}\n\n"
+                
+        for entity in self._extend_light:
+            l = entity.strip()
+            self._log_debug(l)
+            state = self.get_state(l)
+            desc = self._getid(statedict, l)
+            msg += f"{desc}\nstate: {state}\n\n"
 
         self._log_debug(msg)
         self._send_message(msg, target_id)
@@ -320,6 +332,14 @@ class TelegramBot(BaseClass):
                     'description': f"{desc}", 
                     'url':f"/clb_turnoff_light?entity_id={hashvalue}"})
         
+        for entity in self._extend_light:
+            self._log_debug(statedict.get(entity))
+            hashvalue = self._get_hash_from_entityid(entity)
+            desc = self._getid(statedict,entity)
+            keyboard_options.append({
+                'description': f"{desc}", 
+                'url':f"/clb_turnoff_light?entity_id={hashvalue}"})
+        
         self._build_keyboard_answer(keyboard_options, target_id, msg,)
 
     def _clb_turn_off_light(self, target_id, paramdict):
@@ -362,6 +382,14 @@ class TelegramBot(BaseClass):
                 keyboard_options.append({
                     'description': f"{desc}", 
                     'url':f"/clb_turnon_light?entity_id={hashvalue}"})
+                    
+        for entity in self._extend_light:
+            self._log_debug(statedict.get(entity))
+            hashvalue = self._get_hash_from_entityid(entity)
+            desc = self._getid(statedict,entity)
+            keyboard_options.append({
+                'description': f"{desc}", 
+                'url':f"/clb_turnon_light?entity_id={hashvalue}"})
         
         self._build_keyboard_answer(keyboard_options, target_id, msg)
 
