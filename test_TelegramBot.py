@@ -470,7 +470,7 @@ class TestTelegramBot:
     def test__clb_turn_off_light_case2(self, given_that, telegrambot, assert_that, caplog, time_travel):
         caplog.set_level(logging.DEBUG)
         user_id = 1
-        entity_id="cover.living_room"
+        entity_id="light.living_room"
         friendly_name="living_room"
         hashvalue = telegrambot._get_hash_from_entityid(entity_id)
         paramdict = dict()
@@ -554,7 +554,7 @@ class TestTelegramBot:
     def test__clb_turn_on_light_case2(self, given_that, telegrambot, assert_that, caplog, time_travel):
         caplog.set_level(logging.DEBUG)
         user_id = 1
-        entity_id="cover.living_room"
+        entity_id="light.living_room"
         friendly_name="living_room"
         hashvalue = telegrambot._get_hash_from_entityid(entity_id)
         paramdict = dict()

@@ -53,25 +53,24 @@ class TelegramBot(BaseClass):
         self.listen_event(self._appdaemon_restarted, 'appd_started')
         self._entityid_hash_dict = dict()
         self._hash_entityid_dict = dict()
-        self._version=1.1
+        self._version=1.2
         
         self._log_debug(self.args)
 
         #handle extend
-        self._extend_system = None
+        self._extend_system = list()
         if self.args["extend_system"] is not None and self.args["extend_system"]!="":
             self._extend_system=self.args["extend_system"].split(',')
         self._log_debug(f"extend_system: {self._extend_system}")
 
-        self._extend_light = None
-        if self.args["extend_light"] is not None and self.args["extend_light"]!="":
+        self._extend_light = list()
+        if self.args.get("extend_light",None) is not None and self.args.get("extend_light")!="":
             self._extend_light=self.args["extend_light"].split(',')
-        self._log_debug(f"_extend_light: {self._extend_light}")
+        self._log_debug(f"extend_light: {self._extend_light}")
 
         self._filter_blacklist = None
         if self.args.get("filter_blacklist", None) is not None and self.args.get("filter_blacklist")!="":
             self._filter_blacklist=self.args.get("filter_blacklist")
-        self._log_debug(self._filter_blacklist)
         self._log_debug(f"filter_blacklist: {self._filter_blacklist}")
         
         self._filter_whitelist = None
@@ -946,7 +945,7 @@ class TelegramBot(BaseClass):
                 self._send_message(msg, target_id)
                 
     def _turn_on(self, entity_id):
-        if re.match('^light.*', entity_id, re.IGNORECASE)
+        if re.match('^light.*', entity_id, re.IGNORECASE):
             self.call_service("light/turn_on", entity_id=entity_id)
         elif re.match('^automation.*', entity_id, re.IGNORECASE):
             self.call_service("automation/turn_on", entity_id=entity_id)
@@ -970,7 +969,7 @@ class TelegramBot(BaseClass):
             self._log_error("Unsupported entity type for command turn_on")
         
     def _turn_off(self, entity_id):
-        if re.match('^light.*', entity_id, re.IGNORECASE)
+        if re.match('^light.*', entity_id, re.IGNORECASE):
             self.call_service("light/turn_off", entity_id=entity_id)
         elif re.match('^automation.*', entity_id, re.IGNORECASE):
             self.call_service("automation/turn_off", entity_id=entity_id)
