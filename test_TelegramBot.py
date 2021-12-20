@@ -1066,7 +1066,6 @@ class TestTelegramBot:
         telegrambot._compute_travel_time.assert_called()
 
 
-    @freeze_time("2019-10-16 00:02:02", tz_offset=2)
     def test__compute_travel_time(self, given_that, telegrambot, assert_that, caplog, time_travel):
         caplog.set_level(logging.DEBUG)
         user_id = 1

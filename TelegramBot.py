@@ -1,4 +1,4 @@
-from Helper import BaseClass
+from helper.Helper import BaseClass
 import re
 import hashlib
 import ast
@@ -53,7 +53,7 @@ class TelegramBot(BaseClass):
         self.listen_event(self._appdaemon_restarted, 'appd_started')
         self._entityid_hash_dict = dict()
         self._hash_entityid_dict = dict()
-        self._version=1.2
+        self._version=1.2.1
         
         self._log_debug(self.args)
 
