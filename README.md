@@ -84,4 +84,4 @@ For the unit test the [Appdamon-Test-Framework](https://github.com/FlorianKempen
 
 ### Requirements
 
-All necessary requirements are listed in the `requirements-dev.txt`
+All necessary requirements are listed in the `pyproject.toml`.
