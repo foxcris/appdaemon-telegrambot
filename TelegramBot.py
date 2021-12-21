@@ -53,7 +53,7 @@ class TelegramBot(BaseClass):
         self.listen_event(self._appdaemon_restarted, 'appd_started')
         self._entityid_hash_dict = dict()
         self._hash_entityid_dict = dict()
-        self._version=1.2.1
+        self._version="1.2.2"
         
         self._log_debug(self.args)
 
