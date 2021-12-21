@@ -34,10 +34,13 @@ Currently the bot provides a simple request/response command interface. The foll
 * conftest.py
 * poetry.lock
 * pyproject.toml
+
 2: Copy the following folders to your /appdaemon/apps dir:
 * images
 * helper
+
 3: Get Helper.py from https://github.com/foxcris/appdaemon-helper and copy it to /appdaemon/apps/helper dir.
+
 4: to your apps folder of appaemon and add the following configuration to your apps.yaml (example data shown for some parameters)
 ```
 
