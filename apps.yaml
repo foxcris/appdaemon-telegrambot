@@ -7,3 +7,10 @@ TelegramBot:
     - "network_in"
 #  filter_whitelist:
 #    - sample
+  routing:
+    waze:
+      region:               EU
+      avoid_toll_roads:     True
+  hass:
+    token: !secret ha_token
+    ha_url: http://hass:8123

@@ -1,10 +1,13 @@
-from Helper import BaseClass
+from helper.Helper import BaseClass
 import re
 import hashlib
+import ast
+from datetime import datetime
 
 class TelegramBot(BaseClass):
 
     def initialize(self):
+
         self._commanddict = {"/help": {"desc": "Help", "method": self._cmd_help},
                              "/state_cover": {"desc": "State of cover", "method": self._cmd_state_cover},
                              "/state_vacuum": {"desc": "State of vacuum", "method": self._cmd_state_vacuum},
@@ -20,17 +23,29 @@ class TelegramBot(BaseClass):
                              "/restart_hass": {"desc": "Restart hass", "method": self._cmd_restart_hass},
                              "/state_system": {"desc": "State of home-assistant", "method": self._cmd_state_system},
                              "/state_sensor": {"desc": "State of sensors", "method": self._cmd_state_sensor},
-                             "/get_version": {"desc": "Get version of telegrambot", "method": self._cmd_get_version}}
+                             "/get_version": {"desc": "Get version of telegrambot", "method": self._cmd_get_version},
+                             "/turnon_automation": {"desc": "Turn on automation", "method": self._cmd_turn_on_automation},
+                             "/turnoff_automation": {"desc": "Turn off automation", "method": self._cmd_turn_off_automation},
+                             "/trigger_automation": {"desc": "Trigger automation", "method": self._cmd_trigger_automation},
+                             "/state_automation": {"desc": "State of automation", "method": self._cmd_state_automation},
+                             "/get_log": {"desc": "Get last lines of the home-assistant log", "method": self._cmd_get_log},
+                             "/get_error_log": {"desc": "Get home-assistant error log", "method": self._cmd_get_error_log}}
+        #[...]Data to be sent in a callback query to the bot when button is pressed, 1-64 bytes[...]
+        #https://core.telegram.org/bots/api
         self._callbackdict = {"/clb_restart_hass": {"desc": "Restart hass", "method": self._clb_restart_hass},
                               "/clb_start_vacuum": {"desc": "Start vacuum", "method": self._clb_start_vacuum},
                               "/clb_stop_vacuum": {"desc": "Start vacuum", "method": self._clb_stop_vacuum},
                               "/clb_open_cover": {"desc": "Open cover", "method": self._clb_open_cover},
                               "/clb_close_cover": {"desc": "Close cover", "method": self._clb_close_cover},
                               "/clb_turnoff_light": {"desc": "Turn off light", "method": self._clb_turn_off_light},
-                              "/clb_turnon_light": {"desc": "Turn on light", "method": self._clb_turn_on_light}}
+                              "/clb_turnon_light": {"desc": "Turn on light", "method": self._clb_turn_on_light},
+                              "/clb_turnoff_autom": {"desc": "Turn off automation", "method": self._clb_turn_off_autom},
+                              "/clb_turnon_autom": {"desc": "Turn on automation", "method": self._clb_turn_on_autom},
+                              "/clb_trigger_autom": {"desc": "Trigger automation", "method": self._clb_trigger_autom}}
 
         self.listen_event(self._receive_telegram_command, 'telegram_command')
         self.listen_event(self._receive_telegram_callback, 'telegram_callback')
+        self.listen_event(self._receive_telegram_text, 'telegram_text')
         self.listen_state(
             self._homeassistant_update_available,
             "binary_sensor.updater", duration=1)
@@ -38,24 +53,36 @@ class TelegramBot(BaseClass):
         self.listen_event(self._appdaemon_restarted, 'appd_started')
         self._entityid_hash_dict = dict()
         self._hash_entityid_dict = dict()
-        self._version=1.1
+        self._version="1.2.3"
         
         self._log_debug(self.args)
 
         #handle extend
-        self._extend_system = None
+        self._extend_system = list()
         if self.args["extend_system"] is not None and self.args["extend_system"]!="":
             self._extend_system=self.args["extend_system"].split(',')
+        self._log_debug(f"extend_system: {self._extend_system}")
+
+        self._extend_light = list()
+        if self.args.get("extend_light",None) is not None and self.args.get("extend_light")!="":
+            self._extend_light=self.args["extend_light"].split(',')
+        self._log_debug(f"extend_light: {self._extend_light}")
 
         self._filter_blacklist = None
         if self.args.get("filter_blacklist", None) is not None and self.args.get("filter_blacklist")!="":
             self._filter_blacklist=self.args.get("filter_blacklist")
-        self._log_debug(self._filter_blacklist)
+        self._log_debug(f"filter_blacklist: {self._filter_blacklist}")
         
         self._filter_whitelist = None
         if self.args.get("filter_whitelist", None) is not None and self.args.get("filter_whitelist")!="":
             self._filter_whitelist=self.args.get("filter_whitelist")
-        self._log_debug(self._filter_whitelist)
+        self._log_debug(f"filter_whitelist: {self._filter_whitelist}")
+
+        self._routing = self.args.get("routing", None)
+        self._log_debug(f"routing: {self._routing}")
+
+        self._hass = self.args.get("hass", None)
+        self._log_debug(f"hass: {self._hass}")
 
 
     def _receive_telegram_command(self, event_id, payload_event, *args):
@@ -75,6 +102,21 @@ class TelegramBot(BaseClass):
                 'telegram_bot/send_message',
                 target=user_id,
                 message=self._escape_markdown(msg))
+    
+    def _receive_telegram_text(self, event_id, payload_event, *args):
+        user_id = payload_event['user_id']
+        chat_id = payload_event['chat_id']
+        text = ast.literal_eval(payload_event.get('text'))
+
+        self._log_debug(f"Telegram Command: user_id: {user_id}, chat_id: {chat_id}, text: {text}")
+        self._log_debug(f"Paylod_event: {payload_event}")
+
+        #check if location was sent
+        if isinstance(text, dict) and text.get('location',None) is not None:
+            location = text.get('location',dict())
+            longitude = location.get('longitude',None)
+            latitude = location.get('latitude',None)
+            self._compute_travel_time(user_id, longitude, latitude)
 
     def _escape_markdown(self, msg):
         msg = msg.replace("`", "\\`")
@@ -93,7 +135,7 @@ class TelegramBot(BaseClass):
             keyboard_options.append({
                 'description': desc, 
                 'url': command,
-                'button': command})
+                'button': button})
         self._log_debug(msg)
         self._build_keyboard_answer(keyboard_options, target_id, keyboard_width=2)
 
@@ -160,6 +202,13 @@ class TelegramBot(BaseClass):
                 state = statedict.get(entity).get("state")
                 desc = self._getid(statedict,entity)
                 msg += f"{desc}\nstate: {state}\n\n"
+                
+        for entity in self._extend_light:
+            l = entity.strip()
+            self._log_debug(l)
+            state = self.get_state(l)
+            desc = self._getid(statedict, l)
+            msg += f"{desc}\nstate: {state}\n\n"
 
         self._log_debug(msg)
         self._send_message(msg, target_id)
@@ -282,6 +331,14 @@ class TelegramBot(BaseClass):
                     'description': f"{desc}", 
                     'url':f"/clb_turnoff_light?entity_id={hashvalue}"})
         
+        for entity in self._extend_light:
+            self._log_debug(statedict.get(entity))
+            hashvalue = self._get_hash_from_entityid(entity)
+            desc = self._getid(statedict,entity)
+            keyboard_options.append({
+                'description': f"{desc}", 
+                'url':f"/clb_turnoff_light?entity_id={hashvalue}"})
+        
         self._build_keyboard_answer(keyboard_options, target_id, msg,)
 
     def _clb_turn_off_light(self, target_id, paramdict):
@@ -303,8 +360,8 @@ class TelegramBot(BaseClass):
                 'telegram_bot/answer_callback_query',
                 message=self._escape_markdown(msg),
                 callback_query_id=target_id)
-            self.call_service("light/turn_off",
-                              entity_id=entity_id)
+            self._turn_off(entity_id)
+
         else:
             msg = "Unkown entity. Please do not resent old commands!"
             self._send_message(msg, target_id)
@@ -324,6 +381,14 @@ class TelegramBot(BaseClass):
                 keyboard_options.append({
                     'description': f"{desc}", 
                     'url':f"/clb_turnon_light?entity_id={hashvalue}"})
+                    
+        for entity in self._extend_light:
+            self._log_debug(statedict.get(entity))
+            hashvalue = self._get_hash_from_entityid(entity)
+            desc = self._getid(statedict,entity)
+            keyboard_options.append({
+                'description': f"{desc}", 
+                'url':f"/clb_turnon_light?entity_id={hashvalue}"})
         
         self._build_keyboard_answer(keyboard_options, target_id, msg)
 
@@ -346,8 +411,7 @@ class TelegramBot(BaseClass):
                 'telegram_bot/answer_callback_query',
                 message=self._escape_markdown(msg),
                 callback_query_id=target_id)
-            self.call_service("light/turn_on",
-                              entity_id=entity_id)
+            self._turn_on(entity_id)
         else:
             msg = "Unkown entity. Please do not resent old commands!"
             self._send_message(msg, target_id)
@@ -587,7 +651,7 @@ class TelegramBot(BaseClass):
         self._send_message(msg, target_id)
 
     def _build_keyboard_answer(self, items, target_id, msgprefix=None, msgsuffix=None, keyboard_width=8):
-        """ items: list of dictionaries in the form [{'description':'', 'url':''}]
+        """ items: list of dictionaries in the form [{'description':'', 'url':'', 'botton': ''}]
         """
         keyboard = list()
         keyboardrow = list()
@@ -661,15 +725,13 @@ class TelegramBot(BaseClass):
         filtered_statedict=dict()
         for entity in statedict:
             #filter by blacklist
-            blacklisted=True
             if self._filter_blacklist is not None:              
                 prepare="|".join(self._filter_blacklist)
                 blacklistregex=f"({prepare})"
             else:
                 blacklistregex=""   
             
-            #filter by whitelist
-            whitelisted=True    
+            #filter by whitelist  
             if self._filter_whitelist is not None:
                 prepare="|".join(self._filter_whitelist)
                 whitelistregex=f"({prepare})"
@@ -677,7 +739,257 @@ class TelegramBot(BaseClass):
                 whitelistregex=".*"
             
             #apply filter
-            if not re.search(blacklistregex, entity, re.IGNORECASE) and re.search(whitelistregex, entity, re.IGNORECASE):
+            self._log_debug(entity)
+            blackl = re.search(blacklistregex, entity, re.IGNORECASE)
+            whitel = re.search(whitelistregex, entity, re.IGNORECASE)
+            if (blackl is None or blackl.group(0)=='') and (whitel is not None and whitel.group(0)!=''):
+                self._log_debug(f'adding: {entity}')
                 filtered_statedict.update({entity: statedict.get(entity)})
             
         return filtered_statedict
+
+    def _cmd_turn_on_automation(self, target_id):
+        msg = "Which automation do you want to turn on?\n\n"
+        statedict = self._get_state_filtered()
+        keyboard_options=list()
+        for entity in statedict:
+            if re.match('^automation.*', entity, re.IGNORECASE):
+                self._log_debug(statedict.get(entity))
+                hashvalue = self._get_hash_from_entityid(entity)
+                desc = self._getid(statedict,entity)
+                keyboard_options.append({
+                    'description': f"{desc}", 
+                    'url':f"/clb_turnon_autom?entity_id={hashvalue}"})
+        
+        self._build_keyboard_answer(keyboard_options, target_id, msg)
+
+    def _clb_turn_on_autom(self, target_id, paramdict):
+        hashvalue = paramdict.get("entity_id")
+        entity_id = self._get_entityid_from_hash(hashvalue)
+        if entity_id is not None:
+            friendly_name = self.get_state(entity_id, attribute="friendly_name")
+            msg=f"Turn on automation {entity_id} ({friendly_name})"
+            self._send_message(msg, target_id)
+            self.call_service(
+                'telegram_bot/answer_callback_query',
+                message=self._escape_markdown(msg),
+                callback_query_id=target_id)
+            self._turn_on(entity_id)
+        else:
+            msg = "Unkown entity. Please do not resent old commands!"
+            self._send_message(msg, target_id)
+            self.call_service(
+                'telegram_bot/answer_callback_query',
+                message=self._escape_markdown(msg),
+                callback_query_id=target_id,
+                show_alert=True)
+
+    def _cmd_turn_off_automation(self, target_id):
+        msg = "Which automation do you want to turn off?\n\n"
+        statedict = self._get_state_filtered()
+        keyboard_options=list()
+        for entity in statedict:
+            if re.match('^automation.*', entity, re.IGNORECASE):
+                self._log_debug(statedict.get(entity))
+                hashvalue = self._get_hash_from_entityid(entity)
+                desc = self._getid(statedict,entity)
+                keyboard_options.append({
+                    'description': f"{desc}", 
+                    'url':f"/clb_turnoff_autom?entity_id={hashvalue}"})
+        
+        self._build_keyboard_answer(keyboard_options, target_id, msg)
+
+    def _clb_turn_off_autom(self, target_id, paramdict):
+        hashvalue = paramdict.get("entity_id")
+        entity_id = self._get_entityid_from_hash(hashvalue)
+        if entity_id is not None:
+            friendly_name = self.get_state(entity_id, attribute="friendly_name")
+            msg=f"Turn off automation {entity_id} ({friendly_name})"
+            self._send_message(msg, target_id)
+            self.call_service(
+                'telegram_bot/answer_callback_query',
+                message=self._escape_markdown(msg),
+                callback_query_id=target_id)
+            self._turn_off(entity_id)
+        else:
+            msg = "Unkown entity. Please do not resent old commands!"
+            self._send_message(msg, target_id)
+            self.call_service(
+                'telegram_bot/answer_callback_query',
+                message=self._escape_markdown(msg),
+                callback_query_id=target_id,
+                show_alert=True)
+
+    def _cmd_trigger_automation(self, target_id):
+        msg = "Which automation do you want to trigger?\n\n"
+        statedict = self._get_state_filtered()
+        keyboard_options=list()
+        for entity in statedict:
+            if re.match('^automation.*', entity, re.IGNORECASE):
+                self._log_debug(statedict.get(entity))
+                hashvalue = self._get_hash_from_entityid(entity)
+                desc = self._getid(statedict,entity)
+                keyboard_options.append({
+                    'description': f"{desc}", 
+                    'url':f"/clb_trigger_autom?entity_id={hashvalue}"})
+        
+        self._build_keyboard_answer(keyboard_options, target_id, msg)
+
+    def _clb_trigger_autom(self, target_id, paramdict):
+        hashvalue = paramdict.get("entity_id")
+        entity_id = self._get_entityid_from_hash(hashvalue)
+        if entity_id is not None:
+            friendly_name = self.get_state(entity_id, attribute="friendly_name")
+            msg=f"Trigger automation {entity_id} ({friendly_name})"
+            self._send_message(msg, target_id)
+            self.call_service(
+                'telegram_bot/answer_callback_query',
+                message=self._escape_markdown(msg),
+                callback_query_id=target_id)
+            self.call_service("automation/trigger",
+                              entity_id=entity_id)
+        else:
+            msg = "Unkown entity. Please do not resent old commands!"
+            self._send_message(msg, target_id)
+            self.call_service(
+                'telegram_bot/answer_callback_query',
+                message=self._escape_markdown(msg),
+                callback_query_id=target_id,
+                show_alert=True)
+
+    def _cmd_state_automation(self, target_id):
+        statedict = self._get_state_filtered()
+        msg = ""
+        for entity in statedict:
+            if re.match('^automation.*', entity, re.IGNORECASE):
+                self._log_debug(statedict.get(entity))
+                state = statedict.get(entity).get("state")
+                desc = self._getid(statedict, entity)
+                last_triggered = statedict.get(entity).get(
+                    "attributes").get("last_triggered")
+
+                msg += f"{desc}\nstate: {state}\nlast_triggered: {last_triggered}\n\n"
+        self._log_debug(msg)
+        self._send_message(msg, target_id)
+
+    def _compute_travel_time(self, user_id, longitude, latitude):
+        WazeRouteCalculator = self.import_install_module('WazeRouteCalculator')
+        region = 'EU'
+        avoid_toll_roads = False
+        if self._routing is not None:
+            #check which backend is configured
+            #here = self._routing.get('here',None)
+            waze = self._routing.get('waze',None)
+            if waze is not None:
+                region = waze.get('region', 'EU')
+                avoid_toll_roads = waze.get('avoid_toll_roads', False)
+
+        statedict = self.get_state()
+        for entity in statedict:
+            if re.match('^zone.*', entity, re.IGNORECASE):
+                zone = statedict.get(entity)
+                self._log_debug(zone)
+                zone_latitude=self.get_state(entity, attribute='latitude')
+                zone_longitude=self.get_state(entity, attribute='longitude')
+                desc=self._getid(statedict, entity)
+                retry=0
+                maxretry=5
+                while retry<maxretry:
+                    try:
+                        wazeroute = WazeRouteCalculator.WazeRouteCalculator(f"{latitude},{longitude}", f"{zone_latitude},{zone_longitude}", region, avoid_toll_roads)
+                        route_time, route_distance = wazeroute.calc_route_info()
+                        msg = f"Route to '{desc}'\nRequired Time: {route_time:.2f} minutes\nDistance: {route_distance:.2f} km"
+                        self._log_debug(msg)
+                        self._send_message(msg, user_id)
+                        retry=maxretry
+                    except Exception as e:
+                        self._log_error(e)
+                        retry+=1
+                        if retry==maxretry:
+                            self._log_error(f"Compute route to {desc} failed. Max retry reached.")
+                        else:
+                            self._log_error(f"Compute route to {desc} failed. Retry {retry} of {maxretry}.")
+
+    def _cmd_get_log(self, target_id):
+        #curl -X GET -H "Authorization: Bearer ABCDEFGH" \
+        #-H "Content-Type: application/json" \
+        #http://localhost:8123/api/error_log
+        if self._hass is not None:
+            token = self._hass.get('token', None)
+            ha_url = self._hass.get('ha_url', None)
+            if token is not None and ha_url is not None:
+                requests = self.import_install_module('requests')
+                custom_headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+                res=requests.get(f"{ha_url}/api/error_log", headers=custom_headers)
+                loglist=res.text.split('\n')
+                lastlogs=loglist[-50:]
+                self._send_message('\n'.join(lastlogs), target_id)
+
+    def _cmd_get_error_log(self, target_id):
+        #curl -X GET -H "Authorization: Bearer ABCDEFGH" \
+        #-H "Content-Type: application/json" \
+        #http://localhost:8123/api/error_log
+        if self._hass is not None:
+            token = self._hass.get('token', None)
+            ha_url = self._hass.get('ha_url', None)
+            if token is not None and ha_url is not None:
+                requests = self.import_install_module('requests')
+                custom_headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+                res=requests.get(f"{ha_url}/api/error/all", headers=custom_headers)
+                msg = ''
+                for entry in res.json():
+                    timestamp = entry.get('timestamp',None)
+                    if timestamp is not None:
+                        timestamp = datetime.fromtimestamp(timestamp)
+                    errorlevel = entry.get('level',None)
+                    message = entry.get('message',None)
+                    msg += f"{timestamp} {errorlevel} {message}\n"
+                self._send_message(msg, target_id)
+                
+    def _turn_on(self, entity_id):
+        if re.match('^light.*', entity_id, re.IGNORECASE):
+            self.call_service("light/turn_on", entity_id=entity_id)
+        elif re.match('^automation.*', entity_id, re.IGNORECASE):
+            self.call_service("automation/turn_on", entity_id=entity_id)
+        elif re.match('^climate.*', entity_id, re.IGNORECASE):
+            self.call_service("climate/turn_on", entity_id=entity_id)
+        elif re.match('^fan.*', entity_id, re.IGNORECASE):
+            self.call_service("fan/turn_on", entity_id=entity_id)
+        elif re.match('^input_boolean.*', entity_id, re.IGNORECASE):
+            self.call_service("input_boolean/turn_on", entity_id=entity_id)
+        elif re.match('^media_player.*', entity_id, re.IGNORECASE):
+            self.call_service("media_player/turn_on", entity_id=entity_id)
+        elif re.match('^scene.*', entity_id, re.IGNORECASE):
+            self.call_service("scene/turn_on", entity_id=entity_id)
+        elif re.match('^script.*', entity_id, re.IGNORECASE):
+            self.call_service("script/turn_on", entity_id=entity_id)
+        elif re.match('^switch.*', entity_id, re.IGNORECASE):
+            self.call_service("switch/turn_on", entity_id=entity_id)
+        elif re.match('^vacuum.*', entity_id, re.IGNORECASE):
+            self.call_service("vacuum/turn_on", entity_id=entity_id)
+        else:
+            self._log_error("Unsupported entity type for command turn_on")
+        
+    def _turn_off(self, entity_id):
+        if re.match('^light.*', entity_id, re.IGNORECASE):
+            self.call_service("light/turn_off", entity_id=entity_id)
+        elif re.match('^automation.*', entity_id, re.IGNORECASE):
+            self.call_service("automation/turn_off", entity_id=entity_id)
+        elif re.match('^climate.*', entity_id, re.IGNORECASE):
+            self.call_service("climate/turn_off", entity_id=entity_id)
+        elif re.match('^fan.*', entity_id, re.IGNORECASE):
+            self.call_service("fan/turn_off", entity_id=entity_id)
+        elif re.match('^input_boolean.*', entity_id, re.IGNORECASE):
+            self.call_service("input_boolean/turn_off", entity_id=entity_id)
+        elif re.match('^media_player.*', entity_id, re.IGNORECASE):
+            self.call_service("media_player/turn_off", entity_id=entity_id)
+        elif re.match('^scene.*', entity_id, re.IGNORECASE):
+            self.call_service("scene/turn_off", entity_id=entity_id)
+        elif re.match('^script.*', entity_id, re.IGNORECASE):
+            self.call_service("script/turn_off", entity_id=entity_id)
+        elif re.match('^switch.*', entity_id, re.IGNORECASE):
+            self.call_service("switch/turn_off", entity_id=entity_id)
+        elif re.match('^vacuum.*', entity_id, re.IGNORECASE):
+            self.call_service("vacuum/turn_off", entity_id=entity_id)
+        else:
+            self._log_error("Unsupported entity type for command turn_off")

@@ -44,6 +44,11 @@ class TestTelegramBot:
             given_that.state_of(f"person.{person}").is_set_to(
                 "home", {'friendly_name': f"{person}", 'latitude' : 52.5097612943, 'longitude': 13.3732985068, 'gps_accuracy': 20})
 
+        zonelist = ['home', 'work']
+        for zone in zonelist:
+            given_that.state_of(f"zone.{zone}").is_set_to(
+                "zoning", {'friendly_name': f"{zone}", 'latitude' : 52.3942, 'longitude': 13.0727, 'radius': 100})
+
         sensorlist = [ 'load_1m',
                         'load_5m',
                         'load_15m',
@@ -54,6 +59,11 @@ class TestTelegramBot:
         for sensor in sensorlist:
             given_that.state_of(f"sensor.{sensor}").is_set_to(
                 5, {'friendly_name': f"{sensor}", 'unit_of_measurement' : "%"})
+
+        automationlist = ['automation1', 'automation2', 'automation3', 'automation4']
+        for automation in automationlist:
+            given_that.state_of(f"automation.{automation}").is_set_to(
+                "on", {'friendly_name': f"{automation}", 'last_triggered' : "2020-05-07T21:18:56.144145+00:00"})
 
         # set namespace
         telegrambot.set_namespace(None)
@@ -460,7 +470,7 @@ class TestTelegramBot:
     def test__clb_turn_off_light_case2(self, given_that, telegrambot, assert_that, caplog, time_travel):
         caplog.set_level(logging.DEBUG)
         user_id = 1
-        entity_id="cover.living_room"
+        entity_id="light.living_room"
         friendly_name="living_room"
         hashvalue = telegrambot._get_hash_from_entityid(entity_id)
         paramdict = dict()
@@ -544,7 +554,7 @@ class TestTelegramBot:
     def test__clb_turn_on_light_case2(self, given_that, telegrambot, assert_that, caplog, time_travel):
         caplog.set_level(logging.DEBUG)
         user_id = 1
-        entity_id="cover.living_room"
+        entity_id="light.living_room"
         friendly_name="living_room"
         hashvalue = telegrambot._get_hash_from_entityid(entity_id)
         paramdict = dict()
@@ -855,3 +865,259 @@ class TestTelegramBot:
 
         assert_that(
             'telegram_bot/send_message').was.called_with(target=user_id, message=msg)
+    
+
+    @freeze_time("2019-10-16 00:02:02", tz_offset=2)
+    def test__cmd_turn_on_automation(self, given_that, telegrambot, assert_that, caplog, time_travel):
+        caplog.set_level(logging.DEBUG)
+        user_id = 1
+
+        given_that.passed_arg('filter_blacklist').is_set_to(['automation2', 'automation3', 'automation4'])
+        telegrambot.initialize()
+
+        entity_id="automation.automation1"
+        friendly_name="automation1"
+        state="on"
+        msg = telegrambot._escape_markdown(f"Which automation do you want to turn on?\n\n1: {friendly_name}\n")
+
+        keyboard = list()
+        keyboardrow = list()
+        hashvalue = telegrambot._get_hash_from_entityid(f"{entity_id}")
+        keyboardrow.append(
+            (1, f"/clb_turnon_autom?entity_id={hashvalue}"))
+        keyboard.append(keyboardrow)
+        telegrambot._cmd_turn_on_automation(user_id)    
+
+        assert_that(
+            'telegram_bot/send_message').was.called_with(target=user_id, message=msg, inline_keyboard=keyboard)
+
+    @freeze_time("2019-10-16 00:02:02", tz_offset=2)
+    def test__clb_turn_on_automation_case1(self, given_that, telegrambot, assert_that, caplog, time_travel):
+        caplog.set_level(logging.DEBUG)
+        user_id = 1
+        entity_id="automation.automation1"
+        friendly_name="automation1"
+        hashvalue = telegrambot._get_hash_from_entityid(entity_id)
+        paramdict = dict()
+        paramdict.update({"entity_id": hashvalue})
+
+        msg = telegrambot._escape_markdown(f"Turn on automation {entity_id} ({friendly_name})")
+
+        telegrambot._clb_turn_on_autom(user_id, paramdict)
+
+        assert_that(
+            'telegram_bot/send_message').was.called_with(target=user_id, message=msg)
+        
+        assert_that(
+            'automation/turn_on').was.called_with(entity_id=entity_id)
+        
+        assert_that(
+            'telegram_bot/answer_callback_query').was.called_with(message=msg, callback_query_id=user_id)
+
+    #case 3 hashvalue=unkown
+    @freeze_time("2019-10-16 00:02:02", tz_offset=2)
+    def test__clb_turn_on_automation_case2(self, given_that, telegrambot, assert_that, caplog, time_travel):
+        caplog.set_level(logging.DEBUG)
+        user_id = 1
+        paramdict = dict()
+        paramdict.update({"entity_id": "unkown"})
+        msg = telegrambot._escape_markdown(f"Unkown entity. Please do not resent old commands!")
+        telegrambot._clb_turn_on_autom(user_id, paramdict)
+
+        assert_that(
+            'telegram_bot/send_message').was.called_with(target=user_id, message=msg) 
+
+    @freeze_time("2019-10-16 00:02:02", tz_offset=2)
+    def test__cmd_turn_off_automation(self, given_that, telegrambot, assert_that, caplog, time_travel):
+        caplog.set_level(logging.DEBUG)
+        user_id = 1
+
+        given_that.passed_arg('filter_blacklist').is_set_to(['automation2', 'automation3', 'automation4'])
+        telegrambot.initialize()
+
+        entity_id="automation.automation1"
+        friendly_name="automation1"
+        state="on"
+        msg = telegrambot._escape_markdown(f"Which automation do you want to turn off?\n\n1: {friendly_name}\n")
+
+        keyboard = list()
+        keyboardrow = list()
+        hashvalue = telegrambot._get_hash_from_entityid(f"{entity_id}")
+        keyboardrow.append(
+            (1, f"/clb_turnoff_autom?entity_id={hashvalue}"))
+        keyboard.append(keyboardrow)
+        telegrambot._cmd_turn_off_automation(user_id)    
+
+        assert_that(
+            'telegram_bot/send_message').was.called_with(target=user_id, message=msg, inline_keyboard=keyboard)
+
+    @freeze_time("2019-10-16 00:02:02", tz_offset=2)
+    def test__clb_turn_off_automation_case1(self, given_that, telegrambot, assert_that, caplog, time_travel):
+        caplog.set_level(logging.DEBUG)
+        user_id = 1
+        entity_id="automation.automation1"
+        friendly_name="automation1"
+        hashvalue = telegrambot._get_hash_from_entityid(entity_id)
+        paramdict = dict()
+        paramdict.update({"entity_id": hashvalue})
+
+        msg = telegrambot._escape_markdown(f"Turn off automation {entity_id} ({friendly_name})")
+
+        telegrambot._clb_turn_off_autom(user_id, paramdict)
+
+        assert_that(
+            'telegram_bot/send_message').was.called_with(target=user_id, message=msg)
+        
+        assert_that(
+            'automation/turn_off').was.called_with(entity_id=entity_id)
+        
+        assert_that(
+            'telegram_bot/answer_callback_query').was.called_with(message=msg, callback_query_id=user_id)
+
+    #case 3 hashvalue=unkown
+    @freeze_time("2019-10-16 00:02:02", tz_offset=2)
+    def test__clb_turn_off_automation_case2(self, given_that, telegrambot, assert_that, caplog, time_travel):
+        caplog.set_level(logging.DEBUG)
+        user_id = 1
+        paramdict = dict()
+        paramdict.update({"entity_id": "unkown"})
+        msg = telegrambot._escape_markdown(f"Unkown entity. Please do not resent old commands!")
+        telegrambot._clb_turn_off_autom(user_id, paramdict)
+
+        assert_that(
+            'telegram_bot/send_message').was.called_with(target=user_id, message=msg)
+
+    @freeze_time("2019-10-16 00:02:02", tz_offset=2)
+    def test__cmd_trigger_automation(self, given_that, telegrambot, assert_that, caplog, time_travel):
+        caplog.set_level(logging.DEBUG)
+        user_id = 1
+
+        given_that.passed_arg('filter_blacklist').is_set_to(['automation2', 'automation3', 'automation4'])
+        telegrambot.initialize()
+
+        entity_id="automation.automation1"
+        friendly_name="automation1"
+        state="on"
+        msg = telegrambot._escape_markdown(f"Which automation do you want to trigger?\n\n1: {friendly_name}\n")
+
+        keyboard = list()
+        keyboardrow = list()
+        hashvalue = telegrambot._get_hash_from_entityid(f"{entity_id}")
+        keyboardrow.append(
+            (1, f"/clb_trigger_autom?entity_id={hashvalue}"))
+        keyboard.append(keyboardrow)
+        telegrambot._cmd_trigger_automation(user_id)    
+
+        assert_that(
+            'telegram_bot/send_message').was.called_with(target=user_id, message=msg, inline_keyboard=keyboard)
+
+    @freeze_time("2019-10-16 00:02:02", tz_offset=2)
+    def test__clb_trigger_automation_case1(self, given_that, telegrambot, assert_that, caplog, time_travel):
+        caplog.set_level(logging.DEBUG)
+        user_id = 1
+        entity_id="automation.automation1"
+        friendly_name="automation1"
+        hashvalue = telegrambot._get_hash_from_entityid(entity_id)
+        paramdict = dict()
+        paramdict.update({"entity_id": hashvalue})
+
+        msg = telegrambot._escape_markdown(f"Trigger automation {entity_id} ({friendly_name})")
+
+        telegrambot._clb_trigger_autom(user_id, paramdict)
+
+        assert_that(
+            'telegram_bot/send_message').was.called_with(target=user_id, message=msg)
+        
+        assert_that(
+            'automation/trigger').was.called_with(entity_id=entity_id)
+        
+        assert_that(
+            'telegram_bot/answer_callback_query').was.called_with(message=msg, callback_query_id=user_id)
+
+    #case 3 hashvalue=unkown
+    @freeze_time("2019-10-16 00:02:02", tz_offset=2)
+    def test__clb_trigger_automation_case2(self, given_that, telegrambot, assert_that, caplog, time_travel):
+        caplog.set_level(logging.DEBUG)
+        user_id = 1
+        paramdict = dict()
+        paramdict.update({"entity_id": "unkown"})
+        msg = telegrambot._escape_markdown(f"Unkown entity. Please do not resent old commands!")
+        telegrambot._clb_trigger_autom(user_id, paramdict)
+
+        assert_that(
+            'telegram_bot/send_message').was.called_with(target=user_id, message=msg)
+
+
+    @freeze_time("2019-10-16 00:02:02", tz_offset=2)
+    def test__receive_telegram_text(self, given_that, telegrambot, assert_that, caplog, time_travel):
+        caplog.set_level(logging.DEBUG)
+        user_id = 1
+        chat_id = 1
+        text = """{'message_id': 1234, 'date': 1591002810, 'chat': {'id': 123456789, 'type': 'private', 'username': 'foxcris', 'first_name': 'firstname', 'last_name': 'lastname'}, 'entities': [], 'caption_entities': [], 'photo': [], 'location': {'longitude': 13.3732985068, 'latitude': 52.5097612943}, 'new_chat_members': [], 'new_chat_photo': [], 'delete_chat_photo': False, 'group_chat_created': False, 'supergroup_chat_created': False, 'channel_chat_created': False, 'from': {'id': 123456789, 'first_name': 'firstname', 'is_bot': False, 'last_name': 'lastname', 'username': 'foxcris', 'language_code': 'de'}}"""
+        payload_event = dict()
+        payload_event.update({"user_id": user_id})
+        payload_event.update({"chat_id": chat_id})
+        payload_event.update({"text": text})
+
+        telegrambot._compute_travel_time = mock.MagicMock()
+
+        telegrambot._receive_telegram_text(None, payload_event)
+        
+        telegrambot._compute_travel_time.assert_called()
+
+
+    def test__compute_travel_time(self, given_that, telegrambot, assert_that, caplog, time_travel):
+        caplog.set_level(logging.DEBUG)
+        user_id = 1
+
+        given_that.passed_arg('routing').is_set_to({'waze' : {'region': 'EU', 'avoid_toll_roads': False}})
+        telegrambot.initialize()
+
+        telegrambot._compute_travel_time(user_id, 13.3732985068, 52.5097612943)
+        
+        assert_that(
+            'telegram_bot/send_message').was.called_with(target=user_id, message=ANY)
+        
+    @freeze_time("2019-10-16 00:02:02", tz_offset=2)    
+    def test__get_state_filtered_none(self, given_that, telegrambot, assert_that):
+        # passed args
+        given_that.passed_arg('debug').is_set_to('True')
+        given_that.passed_arg('extend_system').is_set_to("p")
+        given_that.passed_arg('filter_blacklist').is_set_to("")
+        given_that.passed_arg('filter_whitelist').is_set_to("")
+        given_that.passed_arg('extend_light').is_set_to("")
+        given_that.passed_arg('extend_system').is_set_to("")
+        telegrambot.initialize()
+
+        edict = telegrambot._get_state_filtered()
+        assert len(edict)==33
+        
+    @freeze_time("2019-10-16 00:02:02", tz_offset=2)    
+    def test__get_state_filtered_blacklist(self, given_that, telegrambot, assert_that):
+        # passed args
+        given_that.passed_arg('debug').is_set_to('True')
+        given_that.passed_arg('extend_system').is_set_to("p")
+        given_that.passed_arg('filter_blacklist').is_set_to(['living_room', 'guest_room'])
+        given_that.passed_arg('filter_whitelist').is_set_to("")
+        given_that.passed_arg('extend_light').is_set_to("")
+        given_that.passed_arg('extend_system').is_set_to("")
+        telegrambot.initialize()
+
+
+        edict = telegrambot._get_state_filtered()
+        assert len(edict)==25
+        
+    @freeze_time("2019-10-16 00:02:02", tz_offset=2)    
+    def test__get_state_filtered_whitelist(self, given_that, telegrambot, assert_that):
+        # passed args
+        given_that.passed_arg('debug').is_set_to('True')
+        given_that.passed_arg('extend_system').is_set_to("p")
+        given_that.passed_arg('filter_blacklist').is_set_to("")
+        given_that.passed_arg('filter_whitelist').is_set_to(['living_room', 'guest_room'])
+        given_that.passed_arg('extend_light').is_set_to("")
+        given_that.passed_arg('extend_system').is_set_to("")
+        telegrambot.initialize()
+
+
+        edict = telegrambot._get_state_filtered()
+        assert len(edict)==8
