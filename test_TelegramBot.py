@@ -1077,3 +1077,47 @@ class TestTelegramBot:
         
         assert_that(
             'telegram_bot/send_message').was.called_with(target=user_id, message=ANY)
+        
+    @freeze_time("2019-10-16 00:02:02", tz_offset=2)    
+    def test__get_state_filtered_none(self, given_that, telegrambot, assert_that):
+        # passed args
+        given_that.passed_arg('debug').is_set_to('True')
+        given_that.passed_arg('extend_system').is_set_to("p")
+        given_that.passed_arg('filter_blacklist').is_set_to("")
+        given_that.passed_arg('filter_whitelist').is_set_to("")
+        given_that.passed_arg('extend_light').is_set_to("")
+        given_that.passed_arg('extend_system').is_set_to("")
+        telegrambot.initialize()
+
+        edict = telegrambot._get_state_filtered()
+        assert len(edict)==33
+        
+    @freeze_time("2019-10-16 00:02:02", tz_offset=2)    
+    def test__get_state_filtered_blacklist(self, given_that, telegrambot, assert_that):
+        # passed args
+        given_that.passed_arg('debug').is_set_to('True')
+        given_that.passed_arg('extend_system').is_set_to("p")
+        given_that.passed_arg('filter_blacklist').is_set_to(['living_room', 'guest_room'])
+        given_that.passed_arg('filter_whitelist').is_set_to("")
+        given_that.passed_arg('extend_light').is_set_to("")
+        given_that.passed_arg('extend_system').is_set_to("")
+        telegrambot.initialize()
+
+
+        edict = telegrambot._get_state_filtered()
+        assert len(edict)==25
+        
+    @freeze_time("2019-10-16 00:02:02", tz_offset=2)    
+    def test__get_state_filtered_whitelist(self, given_that, telegrambot, assert_that):
+        # passed args
+        given_that.passed_arg('debug').is_set_to('True')
+        given_that.passed_arg('extend_system').is_set_to("p")
+        given_that.passed_arg('filter_blacklist').is_set_to("")
+        given_that.passed_arg('filter_whitelist').is_set_to(['living_room', 'guest_room'])
+        given_that.passed_arg('extend_light').is_set_to("")
+        given_that.passed_arg('extend_system').is_set_to("")
+        telegrambot.initialize()
+
+
+        edict = telegrambot._get_state_filtered()
+        assert len(edict)==8

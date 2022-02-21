@@ -725,15 +725,13 @@ class TelegramBot(BaseClass):
         filtered_statedict=dict()
         for entity in statedict:
             #filter by blacklist
-            blacklisted=True
             if self._filter_blacklist is not None:              
                 prepare="|".join(self._filter_blacklist)
                 blacklistregex=f"({prepare})"
             else:
                 blacklistregex=""   
             
-            #filter by whitelist
-            whitelisted=True    
+            #filter by whitelist  
             if self._filter_whitelist is not None:
                 prepare="|".join(self._filter_whitelist)
                 whitelistregex=f"({prepare})"
@@ -741,7 +739,11 @@ class TelegramBot(BaseClass):
                 whitelistregex=".*"
             
             #apply filter
-            if not re.search(blacklistregex, entity, re.IGNORECASE) and re.search(whitelistregex, entity, re.IGNORECASE):
+            self._log_debug(entity)
+            blackl = re.search(blacklistregex, entity, re.IGNORECASE)
+            whitel = re.search(whitelistregex, entity, re.IGNORECASE)
+            if (blackl is None or blackl.group(0)=='') and (whitel is not None and whitel.group(0)!=''):
+                self._log_debug(f'adding: {entity}')
                 filtered_statedict.update({entity: statedict.get(entity)})
             
         return filtered_statedict

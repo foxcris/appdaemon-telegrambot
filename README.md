@@ -40,8 +40,9 @@ TelegramBot:
   debug:                    True
   extend_system:            sensor.date,sensor.heartbeat
   extend_light:             switch.light
-    - load_1m
-    - load_5m
+  filter_blacklist:
+    - unwanted_entity
+    - another_unwanted_entity
   filter_whitelist:
     - sample
   routing:
@@ -53,8 +54,8 @@ TelegramBot:
 ||Configuration parameter || Description ||
 |extend_system | comma separated list of complete entities to include in the system report|
 |extend_light | comma separated list of complete entities to include in the commands /state_light /turnoff_light /turnon_light|
-|filter_blacklist| python regex to exclude entities from being reported/used from telegrambot|
-|filter_whitelist| python regex to whitelist entities from being reported/used from telegrambot
+|filter_blacklist| List of python regex to exclude entities from being reported/used from telegrambot. As the most simple regex you can just list all entities you want to remove.|
+|filter_whitelist| List of python regex to whitelist entities from being reported/used from telegrambot. Becareful, mosttime you do not want to use this!
 The following logic is used to apply the blacklist and whitelist:
 * If the blacklist is empty - nothing is filtered out
 * If the whitelist is empty - nothing is filtered out
