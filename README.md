@@ -39,11 +39,6 @@ Only the Helper.py script is needed. All other files are used during development
 
 4: To your apps folder of appaemon and add the following configuration to your apps.yaml (example data shown for some parameters)
 ```
-
-Helper:
-  module: Helper
-  class: BaseClass
-
 TelegramBot:
   module:                   TelegramBot
   class:                    TelegramBot
